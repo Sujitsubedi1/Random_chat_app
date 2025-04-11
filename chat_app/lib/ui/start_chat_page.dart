@@ -68,8 +68,18 @@ class _StartChatPageState extends State<StartChatPage> {
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to match. Try again later.")),
+      // 🧼 Remove user from queue because match failed
+      // ✅ Grab context-based tools safely
+      final messenger = ScaffoldMessenger.of(context);
+
+      await FirebaseFirestore.instance
+          .collection('waitingQueue')
+          .doc(tempUserName)
+          .delete();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text("No stranger available. Try again later."),
+        ),
       );
     }
   }
