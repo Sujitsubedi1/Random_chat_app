@@ -24,7 +24,6 @@ class FirestoreService {
     final queue = FirebaseFirestore.instance.collection('waitingQueue');
 
     final snapshot = await queue.orderBy('joinedAt').limit(2).get();
-    logger.i("📥 Queue size: ${snapshot.docs.length}");
 
     if (snapshot.docs.length < 2) {
       logger.w("⏳ Not enough users in queue to match.");

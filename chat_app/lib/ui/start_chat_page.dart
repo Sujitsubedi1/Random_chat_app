@@ -87,7 +87,12 @@ class _StartChatPageState extends State<StartChatPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Anonymous Chat')),
+      appBar: AppBar(
+        automaticallyImplyLeading: false, //  hides the back button
+        title: null, // 🔥 No title
+        elevation: 0, // Optional: remove shadow
+        backgroundColor: Colors.transparent, // Optional: clear color
+      ),
 
       body: Center(
         child: Column(
