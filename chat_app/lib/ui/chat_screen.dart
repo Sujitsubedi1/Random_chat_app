@@ -1,9 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../firebase/firestore_service.dart';
-// import 'start_chat_page.dart';
 import 'home_container_page.dart';
+import 'package:logger/logger.dart';
 
+final Logger _logger = Logger();
 DateTime? _lastFriendRequestTime;
 final TextEditingController _controller = TextEditingController();
 
@@ -20,6 +21,56 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final FirestoreService firestoreService = FirestoreService();
   String? _pendingFriendRequestFrom;
+  bool _areFriends = false;
+  String? _strangerId;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStrangerIdAndCheckFriendship();
+  }
+
+  Future<void> _fetchStrangerIdAndCheckFriendship() async {
+    _logger.w("🔄 Fetching stranger and friendship...");
+
+    final chatDoc =
+        await FirebaseFirestore.instance
+            .collection('chatRooms')
+            .doc(widget.chatRoomId)
+            .get();
+    final data = chatDoc.data();
+    if (data == null) {
+      _logger.w("❌ Chat room doc is null.");
+      return;
+    }
+
+    final users = List<String>.from(data['users'] ?? []);
+    final stranger = users.firstWhere((id) => id != widget.userId);
+    setState(() => _strangerId = stranger);
+    _logger.w("👤 Stranger: $stranger");
+
+    final doc =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.userId)
+            .collection('friends')
+            .doc(stranger)
+            .get();
+    final isFriend = doc.exists;
+    _logger.w("✅ isFriend: $isFriend");
+
+    if (isFriend) {
+      setState(() => _areFriends = true);
+      if (data['isActive'] == false || (data['leaver'] ?? '').isNotEmpty) {
+        _logger.w("♻️ Reviving chat room...");
+        await FirebaseFirestore.instance
+            .collection('chatRooms')
+            .doc(widget.chatRoomId)
+            .update({'isActive': true, 'leaver': ''});
+      }
+    }
+  }
+
   Future<void> _handleExitChat() async {
     final chatDoc =
         await FirebaseFirestore.instance
@@ -30,29 +81,33 @@ class _ChatScreenState extends State<ChatScreen> {
     final data = chatDoc.data();
     if (data == null) return;
 
-    // ✅ Mark chat inactive and log who left
     await FirebaseFirestore.instance
         .collection('chatRooms')
         .doc(widget.chatRoomId)
-        .update({'isActive': false, 'leaver': widget.userId});
+        .update({
+          'leaver': widget.userId, // ✅ Always mark the leaver
+          'isActive': _areFriends, // ✅ true if friends, false if strangers
+        });
 
-    // ✅ Schedule cleanup
-    scheduleRoomCleanup(widget.chatRoomId);
+    // 🧼 Only cleanup if NOT friends
+    if (!_areFriends) {
+      scheduleRoomCleanup(widget.chatRoomId);
+    }
+
     if (!mounted) return;
 
-    // ✅ Only the user who pressed back exits to home
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const HomeContainerPage()),
+      MaterialPageRoute(
+        builder: (_) => const HomeContainerPage(initialIndex: 1),
+      ),
     );
   }
 
   Future<void> _requeueAndRematch() async {
-    // Step 1: Requeue the user
     await firestoreService.joinWaitingQueue(widget.userId, widget.userId);
     await firestoreService.matchUsers();
 
-    // Step 2: Wait for a new match
     String? newRoomId;
 
     for (int i = 0; i < 10; i++) {
@@ -84,37 +139,27 @@ class _ChatScreenState extends State<ChatScreen> {
               (_) => ChatScreen(chatRoomId: newRoomId!, userId: widget.userId),
         ),
       );
+    } else {
+      Navigator.pop(context, 'stranger_left');
     }
   }
 
   Future<void> scheduleRoomCleanup(String roomId) async {
     await Future.delayed(const Duration(minutes: 1));
-
     final docRef = FirebaseFirestore.instance
         .collection('chatRooms')
         .doc(roomId);
     final docSnap = await docRef.get();
 
-    if (!docSnap.exists) return;
+    if (!docSnap.exists || docSnap.data()?['isActive'] == true) return;
 
-    final data = docSnap.data();
-    if (data == null || data['isActive'] == true) {
-      return; // Room active again? Skip.
-    }
-
-    // Delete all messages in the subcollection
     final messagesSnapshot = await docRef.collection('messages').get();
     final batch = FirebaseFirestore.instance.batch();
-
     for (var msg in messagesSnapshot.docs) {
       batch.delete(msg.reference);
     }
-
-    // Delete the chatRoom document
     batch.delete(docRef);
-
     await batch.commit();
-    debugPrint("🧹 Deleted inactive room: $roomId");
   }
 
   void _sendMessage() {
@@ -135,6 +180,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _handleFriendRequest() async {
+    if (_areFriends) return;
+
     if (_lastFriendRequestTime != null &&
         DateTime.now().difference(_lastFriendRequestTime!) <
             const Duration(minutes: 5)) {
@@ -147,7 +194,6 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    // Send friend request message into chat
     await FirebaseFirestore.instance
         .collection('chatRooms')
         .doc(widget.chatRoomId)
@@ -163,6 +209,52 @@ class _ChatScreenState extends State<ChatScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text("Friend request sent!")));
+  }
+
+  Future<void> _respondToFriendRequest(
+    String requester,
+    String response,
+  ) async {
+    await FirebaseFirestore.instance
+        .collection('chatRooms')
+        .doc(widget.chatRoomId)
+        .collection('messages')
+        .add({
+          'type': 'friend_response',
+          'from': widget.userId,
+          'response': response,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+
+    if (response == 'yes') {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.userId)
+          .collection('friends')
+          .doc(requester)
+          .set({'since': FieldValue.serverTimestamp()});
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(requester)
+          .collection('friends')
+          .doc(widget.userId)
+          .set({'since': FieldValue.serverTimestamp()});
+
+      setState(() => _areFriends = true);
+    }
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          response == "yes"
+              ? "You are now friends with $requester!"
+              : "Friend request ignored.",
+        ),
+      ),
+    );
   }
 
   Widget _buildMessageInput() {
@@ -184,54 +276,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Future<void> _respondToFriendRequest(
-    String requester,
-    String response,
-  ) async {
-    // 1. Log the friend response to chat (optional, for tracking)
-    await FirebaseFirestore.instance
-        .collection('chatRooms')
-        .doc(widget.chatRoomId)
-        .collection('messages')
-        .add({
-          'type': 'friend_response',
-          'from': widget.userId,
-          'response': response,
-          'timestamp': FieldValue.serverTimestamp(),
-        });
-
-    if (response == 'yes') {
-      // 2. Store in current user's friends list
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.userId)
-          .collection('friends')
-          .doc(requester)
-          .set({'since': FieldValue.serverTimestamp()});
-
-      // 3. Store in requester’s friends list
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(requester)
-          .collection('friends')
-          .doc(widget.userId)
-          .set({'since': FieldValue.serverTimestamp()});
-    }
-
-    if (!mounted) return;
-
-    // 4. Show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          response == "yes"
-              ? "You are now friends with $requester!"
-              : "Friend request ignored.",
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot>(
@@ -241,19 +285,11 @@ class _ChatScreenState extends State<ChatScreen> {
               .doc(widget.chatRoomId)
               .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || !snapshot.data!.exists) {
-          WidgetsBinding.instance.addPostFrameCallback((_) async {
-            await _requeueAndRematch();
-          });
-
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
         }
 
-        final doc = snapshot.data!;
-        final data = doc.data() as Map<String, dynamic>?;
-
+        final data = snapshot.data!.data() as Map<String, dynamic>?;
         if (data == null) {
           return const Center(child: Text("Room data missing"));
         }
@@ -261,17 +297,20 @@ class _ChatScreenState extends State<ChatScreen> {
         final isActive = data['isActive'] ?? false;
         final leaver = data['leaver'] ?? '';
 
-        if (!isActive) {
-          if (leaver == widget.userId) {
-            return const SizedBox.shrink();
-          }
+        // Wait until we fetch friendship info first
+        if (_strangerId == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text("Chat Room"),
-              automaticallyImplyLeading: false,
-            ),
-            body: Center(
+        final hasLeft = leaver != '' && leaver != widget.userId;
+
+        // ✅ Restore chat if they're friends but one user left earlier
+
+        // 👇 Only show "Stranger left" if they're NOT friends
+        if ((!isActive || hasLeft) && !_areFriends) {
+          _logger.w("🚫 Stranger left — showing requeue UI");
+          return HomeContainerPage(
+            overrideBody: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -283,20 +322,52 @@ class _ChatScreenState extends State<ChatScreen> {
                   ElevatedButton.icon(
                     icon: const Icon(Icons.refresh),
                     label: const Text("Find Again"),
-                    onPressed: () => _requeueAndRematch(),
+                    onPressed: _requeueAndRematch,
                   ),
                 ],
               ),
             ),
+            initialIndex: 0,
           );
         }
 
-        return PopScope<String>(
+        if (_areFriends && hasLeft) {
+          _logger.w("👋 Friend left — showing fallback friend screen");
+          return HomeContainerPage(
+            overrideBody: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Your friend left the chat.\nYou can continue chatting via the Friends tab.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 18),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.group),
+                    label: const Text("Go to Friends"),
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (_) => const HomeContainerPage(initialIndex: 1),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            initialIndex: 0,
+          );
+        }
+
+        return PopScope(
           canPop: false,
-          onPopInvokedWithResult: (bool didPop, String? result) {
-            if (!didPop) {
-              _handleExitChat();
-            }
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop) _handleExitChat();
           },
           child: Scaffold(
             appBar: AppBar(
@@ -306,10 +377,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 onPressed: _handleExitChat,
               ),
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.person_add),
-                  onPressed: _handleFriendRequest,
-                ),
+                if (!_areFriends)
+                  IconButton(
+                    icon: const Icon(Icons.person_add),
+                    onPressed: _handleFriendRequest,
+                  ),
               ],
             ),
             body: Column(
@@ -342,37 +414,52 @@ class _ChatScreenState extends State<ChatScreen> {
                               messages[messages.length - 1 - index].data()
                                   as Map<String, dynamic>;
 
-                          // ✅ Friend request handler
+                          if (msg['type'] == 'friend_response' &&
+                              msg['response'] == 'yes') {
+                            if (!_areFriends) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) setState(() => _areFriends = true);
+                              });
+                            }
+
+                            return Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 6,
+                                ),
+                                child: Text(
+                                  "You and ${_strangerId ?? 'stranger'} are now friends.",
+                                  style: const TextStyle(
+                                    fontStyle: FontStyle.italic,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+
                           if (msg['type'] == 'friend_request') {
                             final requester = msg['from'];
-                            final isMe = requester == widget.userId;
-
-                            final hasResponse = messages.any((m) {
-                              final mData = m.data() as Map<String, dynamic>;
-                              return mData['type'] == 'friend_response' &&
-                                  mData['from'] != requester;
-                            });
-
-                            if (!isMe &&
-                                !hasResponse &&
+                            if (!_areFriends &&
+                                requester != widget.userId &&
                                 _pendingFriendRequestFrom != requester) {
                               WidgetsBinding.instance.addPostFrameCallback((_) {
                                 if (mounted) {
-                                  setState(() {
-                                    _pendingFriendRequestFrom = requester;
-                                  });
+                                  setState(
+                                    () => _pendingFriendRequestFrom = requester,
+                                  );
                                 }
                               });
                             }
 
-                            if (isMe) {
+                            if (requester == widget.userId && !_areFriends) {
                               return Center(
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
-                                    vertical: 6.0,
+                                    vertical: 6,
                                   ),
                                   child: Text(
-                                    "You sent a friend request to $requester.",
+                                    "You sent a friend request to ${_strangerId ?? 'stranger'}.",
                                     style: const TextStyle(
                                       fontStyle: FontStyle.italic,
                                       color: Colors.black54,
@@ -385,53 +472,16 @@ class _ChatScreenState extends State<ChatScreen> {
                             return const SizedBox.shrink();
                           }
 
-                          // ✅ Friend response - accepted
-                          if (msg['type'] == 'friend_response' &&
-                              msg['response'] == 'yes') {
-                            final from = msg['from'];
-                            final isMe = from == widget.userId;
-
-                            if (_pendingFriendRequestFrom != null) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (mounted) {
-                                  setState(() {
-                                    _pendingFriendRequestFrom = null;
-                                  });
-                                }
-                              });
-                            }
-
-                            return Center(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 6.0,
-                                ),
-                                child: Text(
-                                  isMe
-                                      ? "You and ${_pendingFriendRequestFrom ?? 'stranger'} are now friends."
-                                      : "You and $from are now friends.",
-                                  style: const TextStyle(
-                                    fontStyle: FontStyle.italic,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-
-                          // ✅ Friend response - rejected
                           if (msg['type'] == 'friend_response' &&
                               msg['response'] == 'no') {
                             final from = msg['from'];
-                            final isMe = from == widget.userId;
-
                             return Center(
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  vertical: 6.0,
+                                  vertical: 6,
                                 ),
                                 child: Text(
-                                  isMe
+                                  from == widget.userId
                                       ? "You rejected the friend request."
                                       : "$from rejected your friend request.",
                                   style: const TextStyle(
@@ -443,7 +493,10 @@ class _ChatScreenState extends State<ChatScreen> {
                             );
                           }
 
-                          final isMe = msg['sender'] == widget.userId;
+                          final sender =
+                              (msg['sender'] ?? '').toString().trim();
+                          final isMe = sender == widget.userId.trim();
+
                           return Align(
                             alignment:
                                 isMe
@@ -468,8 +521,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     },
                   ),
                 ),
-
-                if (_pendingFriendRequestFrom != null)
+                if (_pendingFriendRequestFrom != null && !_areFriends)
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -491,9 +543,9 @@ class _ChatScreenState extends State<ChatScreen> {
                                   _pendingFriendRequestFrom!,
                                   'yes',
                                 );
-                                setState(() {
-                                  _pendingFriendRequestFrom = null;
-                                });
+                                setState(
+                                  () => _pendingFriendRequestFrom = null,
+                                );
                               },
                               child: const Text("Yes"),
                             ),
@@ -504,9 +556,9 @@ class _ChatScreenState extends State<ChatScreen> {
                                   _pendingFriendRequestFrom!,
                                   'no',
                                 );
-                                setState(() {
-                                  _pendingFriendRequestFrom = null;
-                                });
+                                setState(
+                                  () => _pendingFriendRequestFrom = null,
+                                );
                               },
                               child: const Text("No"),
                             ),
@@ -515,7 +567,6 @@ class _ChatScreenState extends State<ChatScreen> {
                       ],
                     ),
                   ),
-
                 Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: _buildMessageInput(),

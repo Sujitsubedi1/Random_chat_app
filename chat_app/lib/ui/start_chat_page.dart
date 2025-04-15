@@ -15,6 +15,7 @@ class _StartChatPageState extends State<StartChatPage> {
   final FirestoreService firestoreService = FirestoreService();
 
   String? _tempUserName;
+  bool _showStrangerLeft = false;
 
   @override
   void initState() {
@@ -30,18 +31,17 @@ class _StartChatPageState extends State<StartChatPage> {
   }
 
   Future<void> _onStartChatPressed() async {
-    final navigator = Navigator.of(context);
+    setState(() {
+      _showStrangerLeft = false;
+    });
 
     final tempUserName = await TempUserManager.getOrCreateTempUsername();
-
     await firestoreService.joinWaitingQueue(tempUserName, tempUserName);
     await firestoreService.matchUsers();
 
-    // Wait and poll chatRooms to check if this user got matched
     String? matchedRoomId;
 
     for (int i = 0; i < 10; i++) {
-      // try for 10 seconds max
       final rooms =
           await FirebaseFirestore.instance
               .collection('chatRooms')
@@ -54,29 +54,33 @@ class _StartChatPageState extends State<StartChatPage> {
         break;
       }
 
-      await Future.delayed(const Duration(seconds: 1)); // wait before retrying
+      await Future.delayed(const Duration(seconds: 1));
     }
 
     if (!mounted) return;
 
     if (matchedRoomId != null) {
-      navigator.push(
+      Navigator.push(
+        context,
         MaterialPageRoute(
           builder:
-              (context) =>
+              (_) =>
                   ChatScreen(chatRoomId: matchedRoomId!, userId: tempUserName),
         ),
-      );
+      ).then((result) {
+        if (result == 'stranger_left') {
+          setState(() {
+            _showStrangerLeft = true;
+          });
+        }
+      });
     } else {
-      // 🧼 Remove user from queue because match failed
-      // ✅ Grab context-based tools safely
-      final messenger = ScaffoldMessenger.of(context);
-
       await FirebaseFirestore.instance
           .collection('waitingQueue')
           .doc(tempUserName)
           .delete();
-      messenger.showSnackBar(
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("No stranger available. Try again later."),
         ),
@@ -88,12 +92,10 @@ class _StartChatPageState extends State<StartChatPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false, //  hides the back button
-        title: null, // 🔥 No title
-        elevation: 0, // Optional: remove shadow
-        backgroundColor: Colors.transparent, // Optional: clear color
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
-
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -108,10 +110,23 @@ class _StartChatPageState extends State<StartChatPage> {
               ),
               const SizedBox(height: 20),
             ],
-            ElevatedButton(
-              onPressed: _onStartChatPressed,
-              child: const Text('Start Chat'),
-            ),
+            if (_showStrangerLeft) ...[
+              const Text(
+                "Stranger left the chat.",
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.refresh),
+                label: const Text("Find Again"),
+                onPressed: _onStartChatPressed,
+              ),
+            ] else ...[
+              ElevatedButton(
+                onPressed: _onStartChatPressed,
+                child: const Text('Start Chat'),
+              ),
+            ],
           ],
         ),
       ),

@@ -4,7 +4,10 @@ import 'friends_page.dart'; // import your FriendsPage
 import '../services/temp_user_manager.dart';
 
 class HomeContainerPage extends StatefulWidget {
-  const HomeContainerPage({super.key});
+  final Widget? overrideBody;
+  final int? initialIndex;
+
+  const HomeContainerPage({super.key, this.overrideBody, this.initialIndex});
 
   @override
   State<HomeContainerPage> createState() => _HomeContainerPageState();
@@ -18,6 +21,7 @@ class _HomeContainerPageState extends State<HomeContainerPage> {
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex ?? 0;
     _loadUsername();
   }
 
@@ -43,7 +47,11 @@ class _HomeContainerPageState extends State<HomeContainerPage> {
     }
 
     return Scaffold(
-      body: _pages[_currentIndex],
+      body:
+          widget.overrideBody != null &&
+                  _currentIndex == (widget.initialIndex ?? 0)
+              ? widget.overrideBody!
+              : _pages[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
