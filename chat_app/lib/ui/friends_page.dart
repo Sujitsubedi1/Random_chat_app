@@ -62,150 +62,75 @@ class _FriendsPageState extends State<FriendsPage> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false, // no back button
+        automaticallyImplyLeading: false,
         title: const Text('Friends'),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream:
             FirebaseFirestore.instance
-                .collection('users')
-                .doc(widget.userId)
-                .collection('friends')
+                .collection('chatRooms')
+                .where('users', arrayContains: widget.userId)
                 .snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text("You have no active chats."));
           }
 
-          final friends = snapshot.data!.docs;
+          final rooms = snapshot.data!.docs;
 
-          if (friends.isEmpty) {
-            return const Center(child: Text("You have no friends yet."));
-          }
+          // Build friend list from rooms
+          final friendsData =
+              rooms.map((doc) {
+                final users = List<String>.from(doc['users']);
+                final friendId = users.firstWhere((u) => u != widget.userId);
+                final lastMessage = doc['lastMessage'] ?? '';
+                final timestamp = doc['lastMessageTimestamp']?.toDate();
+                return {
+                  'friendId': friendId,
+                  'roomId': doc.id,
+                  'lastMessage': lastMessage,
+                  'timestamp':
+                      timestamp ?? DateTime.fromMillisecondsSinceEpoch(0),
+                };
+              }).toList();
+
+          // Sort by timestamp DESCENDING
+          friendsData.sort(
+            (a, b) => (b['timestamp'] as DateTime).compareTo(
+              a['timestamp'] as DateTime,
+            ),
+          );
 
           return ListView.builder(
-            itemCount: friends.length,
+            itemCount: friendsData.length,
             itemBuilder: (context, index) {
-              final friendId = friends[index].id;
+              final friend = friendsData[index];
+              final friendId = friend['friendId'];
+              final lastMessage = friend['lastMessage'] ?? '';
+              final timestamp = friend['timestamp'] as DateTime;
+              final time =
+                  "${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}";
 
-              return StreamBuilder<QuerySnapshot>(
-                stream:
-                    FirebaseFirestore.instance
-                        .collection('chatRooms')
-                        .where('users', arrayContains: widget.userId)
-                        .snapshots(),
-                builder: (context, roomSnapshot) {
-                  if (!roomSnapshot.hasData) {
-                    return const ListTile(title: Text("Loading chat info..."));
-                  }
-
-                  QueryDocumentSnapshot? matchingRoom;
-
-                  for (var doc in roomSnapshot.data!.docs) {
-                    final users = List<String>.from(doc['users']);
-                    if (users.contains(friendId)) {
-                      matchingRoom = doc;
-                      break;
-                    }
-                  }
-
-                  if (matchingRoom == null) {
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.blueGrey[100],
-                        child: Text(
-                          friendId.isNotEmpty ? friendId[0].toUpperCase() : '?',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      title: Text(friendId),
-                      subtitle: const Text("No messages yet"),
-                      onTap: () => openFriendChat(friendId),
-                    );
-                  }
-
-                  return StreamBuilder<QuerySnapshot>(
-                    stream:
-                        FirebaseFirestore.instance
-                            .collection('chatRooms')
-                            .doc(matchingRoom.id)
-                            .collection('messages')
-                            .orderBy('timestamp', descending: true)
-                            .limit(1)
-                            .snapshots(),
-                    builder: (context, messageSnapshot) {
-                      if (!messageSnapshot.hasData ||
-                          messageSnapshot.data!.docs.isEmpty) {
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.blueGrey[100],
-                            child: Text(
-                              friendId.isNotEmpty
-                                  ? friendId[0].toUpperCase()
-                                  : '?',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          title: Text(friendId),
-                          subtitle: const Text("No messages yet"),
-                          onTap: () => openFriendChat(friendId),
-                        );
-                      }
-
-                      final lastMsg =
-                          messageSnapshot.data!.docs.first.data()
-                              as Map<String, dynamic>;
-                      final text = lastMsg['text'] ?? '';
-                      final timestamp = lastMsg['timestamp']?.toDate();
-                      final time =
-                          timestamp != null
-                              ? "${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}"
-                              : '';
-
-                      final isMe = lastMsg['sender'] == widget.userId;
-                      final delivered = lastMsg['delivered'] == true;
-
-                      final seenIcon = Icon(
-                        Icons.done_all,
-                        size: 18,
-                        color: delivered ? Colors.blueAccent : Colors.grey,
-                      );
-
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.blueGrey[100],
-                          child: Text(
-                            friendId.isNotEmpty
-                                ? friendId[0].toUpperCase()
-                                : '?',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        title: Text(friendId),
-                        subtitle: Row(
-                          children: [
-                            if (isMe) seenIcon,
-                            if (isMe) const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                isMe ? "You: $text" : text,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        trailing: Text(time),
-                        onTap: () => openFriendChat(friendId),
-                      );
-                    },
-                  );
-                },
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.blueGrey[100],
+                  child: Text(
+                    friendId.isNotEmpty ? friendId[0].toUpperCase() : '?',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                title: Text(friendId),
+                subtitle: Text(
+                  lastMessage.isEmpty ? "No messages yet" : lastMessage,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: Text(time),
+                onTap: () => openFriendChat(friendId),
               );
             },
           );
