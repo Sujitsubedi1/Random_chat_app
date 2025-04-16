@@ -400,6 +400,100 @@ class _ChatScreenState extends State<ChatScreen> {
                     icon: const Icon(Icons.person_add),
                     onPressed: _handleFriendRequest,
                   ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  color: Colors.white,
+                  elevation: 6,
+                  itemBuilder:
+                      (context) => [
+                        PopupMenuItem<String>(
+                          value: 'report',
+                          child: Row(
+                            children: const [
+                              Icon(Icons.flag, color: Colors.redAccent),
+                              SizedBox(width: 10),
+                              Text("Report User"),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem<String>(
+                          value: 'block',
+                          child: Row(
+                            children: const [
+                              Icon(Icons.block, color: Colors.grey),
+                              SizedBox(width: 10),
+                              Text("Block User"),
+                            ],
+                          ),
+                        ),
+                      ],
+                  onSelected: (value) {
+                    if (value == 'report') {
+                      showDialog(
+                        context: context,
+                        builder:
+                            (_) => AlertDialog(
+                              title: const Text("Report User"),
+                              content: const Text(
+                                "Are you sure you want to report this user?",
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text("Cancel"),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          "User reported (UI only).",
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text("Report"),
+                                ),
+                              ],
+                            ),
+                      );
+                    } else if (value == 'block') {
+                      showDialog(
+                        context: context,
+                        builder:
+                            (_) => AlertDialog(
+                              title: const Text("Block User"),
+                              content: const Text(
+                                "You will no longer be matched with this user.",
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text("Cancel"),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          "User blocked (UI only).",
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text("Block"),
+                                ),
+                              ],
+                            ),
+                      );
+                    }
+                  },
+                ),
               ],
             ),
             body: Column(
