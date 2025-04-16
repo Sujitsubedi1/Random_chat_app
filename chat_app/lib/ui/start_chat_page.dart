@@ -1,133 +1,165 @@
 import 'package:flutter/material.dart';
-import '../firebase/firestore_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'chat_screen.dart';
+import '../firebase/firestore_service.dart';
 import '../services/temp_user_manager.dart';
+import 'chat_screen.dart';
 
-class StartChatPage extends StatefulWidget {
+class StartChatPage extends StatelessWidget {
   const StartChatPage({super.key});
-
-  @override
-  State<StartChatPage> createState() => _StartChatPageState();
-}
-
-class _StartChatPageState extends State<StartChatPage> {
-  final FirestoreService firestoreService = FirestoreService();
-
-  String? _tempUserName;
-  bool _showStrangerLeft = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUsername();
-  }
-
-  Future<void> _loadUsername() async {
-    final name = await TempUserManager.getOrCreateTempUsername();
-    setState(() {
-      _tempUserName = name;
-    });
-  }
-
-  Future<void> _onStartChatPressed() async {
-    setState(() {
-      _showStrangerLeft = false;
-    });
-
-    final tempUserName = await TempUserManager.getOrCreateTempUsername();
-    await firestoreService.joinWaitingQueue(tempUserName, tempUserName);
-    await firestoreService.matchUsers();
-
-    String? matchedRoomId;
-
-    for (int i = 0; i < 10; i++) {
-      final rooms =
-          await FirebaseFirestore.instance
-              .collection('chatRooms')
-              .where('users', arrayContains: tempUserName)
-              .where('isActive', isEqualTo: true)
-              .get();
-
-      if (rooms.docs.isNotEmpty) {
-        matchedRoomId = rooms.docs.first.id;
-        break;
-      }
-
-      await Future.delayed(const Duration(seconds: 1));
-    }
-
-    if (!mounted) return;
-
-    if (matchedRoomId != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder:
-              (_) =>
-                  ChatScreen(chatRoomId: matchedRoomId!, userId: tempUserName),
-        ),
-      ).then((result) {
-        if (result == 'stranger_left') {
-          setState(() {
-            _showStrangerLeft = true;
-          });
-        }
-      });
-    } else {
-      await FirebaseFirestore.instance
-          .collection('waitingQueue')
-          .doc(tempUserName)
-          .delete();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("No stranger available. Try again later."),
-        ),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_tempUserName != null) ...[
-              Text(
-                "You are: $_tempUserName",
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 20),
+
+              // 🌈 Logo Pill
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFEF5DA8), Color(0xFF8A56F1)],
+                  ),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: const Text(
+                  "Random Chat",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              const SizedBox(height: 20),
-            ],
-            if (_showStrangerLeft) ...[
+
+              const SizedBox(height: 30),
+
+              // 🌍 Map Image
+              Image.asset(
+                'assets/world_map.png',
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.contain,
+              ),
+
+              const SizedBox(height: 30),
+
+              // 🧠 Title + Subtitle
               const Text(
-                "Stranger left the chat.",
-                style: TextStyle(fontSize: 16),
+                "Real talks. Random people.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.refresh),
-                label: const Text("Find Again"),
-                onPressed: _onStartChatPressed,
+              const SizedBox(height: 8),
+              const Text(
+                "Chat freely & stay private.",
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600, // 💡 Slightly bold
+                ),
               ),
-            ] else ...[
-              ElevatedButton(
-                onPressed: _onStartChatPressed,
-                child: const Text('Start Chat'),
+
+              const SizedBox(height: 30),
+
+              // 🟣 Start Chat Button
+              SizedBox(
+                width: 200,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8A56F1),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  onPressed: () async {
+                    final userId =
+                        await TempUserManager.getOrCreateTempUsername();
+
+                    await FirestoreService().joinWaitingQueue(userId, userId);
+                    await FirestoreService().matchUsers();
+
+                    for (int i = 0; i < 10; i++) {
+                      final rooms =
+                          await FirebaseFirestore.instance
+                              .collection('chatRooms')
+                              .where('users', arrayContains: userId)
+                              .where('isActive', isEqualTo: true)
+                              .get();
+
+                      if (rooms.docs.isNotEmpty) {
+                        final roomId = rooms.docs.first.id;
+
+                        if (!context.mounted) return;
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => ChatScreen(
+                                  chatRoomId: roomId,
+                                  userId: userId,
+                                  fromFriendsTab: false,
+                                ),
+                          ),
+                        );
+                        return;
+                      }
+
+                      await Future.delayed(const Duration(seconds: 1));
+                    }
+
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("No match found. Try again shortly."),
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    "Start Chat",
+                    style: TextStyle(
+                      color: Colors.white, // ✅ White Text
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold, // ✅ Bold
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // 🎛️ Preferences
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: const [
+                  Row(
+                    children: [
+                      Icon(Icons.people_alt_outlined, size: 18),
+                      SizedBox(width: 6),
+                      Text("All genders"),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Icon(Icons.favorite_border, size: 18),
+                      SizedBox(width: 6),
+                      Text("Any interests"),
+                    ],
+                  ),
+                ],
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
