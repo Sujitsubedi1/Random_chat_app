@@ -12,7 +12,14 @@ class ChatScreen extends StatefulWidget {
   final String chatRoomId;
   final String userId;
 
-  const ChatScreen({super.key, required this.chatRoomId, required this.userId});
+  final bool fromFriendsTab;
+
+  const ChatScreen({
+    super.key,
+    required this.chatRoomId,
+    required this.userId,
+    this.fromFriendsTab = false, // ← add this
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -81,17 +88,16 @@ class _ChatScreenState extends State<ChatScreen> {
     final data = chatDoc.data();
     if (data == null) return;
 
-    await FirebaseFirestore.instance
-        .collection('chatRooms')
-        .doc(widget.chatRoomId)
-        .update({
-          'leaver': widget.userId, // ✅ Always mark the leaver
-          'isActive': _areFriends, // ✅ true if friends, false if strangers
-        });
+    // ✅ Even if friends, we must mark leaver if NOT opened from Friends tab
+    if (!_areFriends || !widget.fromFriendsTab) {
+      await FirebaseFirestore.instance
+          .collection('chatRooms')
+          .doc(widget.chatRoomId)
+          .update({'leaver': widget.userId, 'isActive': false});
 
-    // 🧼 Only cleanup if NOT friends
-    if (!_areFriends) {
-      scheduleRoomCleanup(widget.chatRoomId);
+      if (!_areFriends) {
+        scheduleRoomCleanup(widget.chatRoomId);
+      }
     }
 
     if (!mounted) return;
@@ -331,7 +337,7 @@ class _ChatScreenState extends State<ChatScreen> {
           );
         }
 
-        if (_areFriends && hasLeft) {
+        if (_areFriends && hasLeft && data['leaver'] != widget.userId) {
           _logger.w("👋 Friend left — showing fallback friend screen");
           return HomeContainerPage(
             overrideBody: Center(

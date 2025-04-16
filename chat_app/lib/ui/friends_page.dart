@@ -52,8 +52,11 @@ class _FriendsPageState extends State<FriendsPage> {
       context,
       MaterialPageRoute(
         builder:
-            (_) =>
-                ChatScreen(chatRoomId: matchedRoom.id, userId: widget.userId),
+            (_) => ChatScreen(
+              chatRoomId: matchedRoom.id,
+              userId: widget.userId,
+              fromFriendsTab: true, // ✅ Key addition
+            ),
       ),
     );
   }
