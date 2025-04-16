@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'start_chat_page.dart';
 import 'friends_page.dart'; // import your FriendsPage
 import '../services/temp_user_manager.dart';
+import 'settings_page.dart';
 
 class HomeContainerPage extends StatefulWidget {
   final Widget? overrideBody;
@@ -34,8 +35,8 @@ class _HomeContainerPageState extends State<HomeContainerPage> {
       _pages = [
         const StartChatPage(),
         FriendsPage(userId: name),
-        const Placeholder(), // Settings
         const Placeholder(), // Shop
+        SettingsPage(username: name), // Settings
       ];
     });
   }
@@ -66,12 +67,12 @@ class _HomeContainerPageState extends State<HomeContainerPage> {
           BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Find'),
           BottomNavigationBarItem(icon: Icon(Icons.group), label: 'Friends'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.shopping_cart),
             label: 'Shop',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Settings',
           ),
         ],
       ),
