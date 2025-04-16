@@ -172,14 +172,26 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    final messageData = {
+      'text': text,
+      'sender': widget.userId,
+      'timestamp': FieldValue.serverTimestamp(),
+    };
+
+    // 1. Add message
     FirebaseFirestore.instance
         .collection('chatRooms')
         .doc(widget.chatRoomId)
         .collection('messages')
-        .add({
-          'text': text,
-          'sender': widget.userId,
-          'timestamp': FieldValue.serverTimestamp(),
+        .add(messageData);
+
+    // 2. Update last message & timestamp at room level
+    FirebaseFirestore.instance
+        .collection('chatRooms')
+        .doc(widget.chatRoomId)
+        .update({
+          'lastMessage': text,
+          'lastMessageTimestamp': FieldValue.serverTimestamp(),
         });
 
     _controller.clear();
