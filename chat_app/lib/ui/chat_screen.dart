@@ -5,7 +5,8 @@ import 'home_container_page.dart';
 import 'package:logger/logger.dart';
 
 final Logger _logger = Logger();
-DateTime? _lastFriendRequestTime;
+Map<String, DateTime> _lastFriendRequests = {};
+
 final TextEditingController _controller = TextEditingController();
 
 class ChatScreen extends StatefulWidget {
@@ -198,11 +199,12 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _handleFriendRequest() async {
-    if (_areFriends) return;
+    if (_areFriends || _strangerId == null) return;
 
-    if (_lastFriendRequestTime != null &&
-        DateTime.now().difference(_lastFriendRequestTime!) <
-            const Duration(minutes: 5)) {
+    final lastSentTime = _lastFriendRequests[_strangerId!];
+
+    if (lastSentTime != null &&
+        DateTime.now().difference(lastSentTime) < const Duration(minutes: 5)) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -222,7 +224,8 @@ class _ChatScreenState extends State<ChatScreen> {
           'timestamp': FieldValue.serverTimestamp(),
         });
 
-    _lastFriendRequestTime = DateTime.now();
+    _lastFriendRequests[_strangerId!] = DateTime.now();
+
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,

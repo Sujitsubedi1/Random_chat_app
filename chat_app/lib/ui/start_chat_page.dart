@@ -3,9 +3,61 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../firebase/firestore_service.dart';
 import '../services/temp_user_manager.dart';
 import 'chat_screen.dart';
+import 'package:lottie/lottie.dart';
 
-class StartChatPage extends StatelessWidget {
+class StartChatPage extends StatefulWidget {
   const StartChatPage({super.key});
+
+  @override
+  State<StartChatPage> createState() => _StartChatPageState();
+}
+
+class _StartChatPageState extends State<StartChatPage> {
+  bool _isSearching = false;
+
+  Future<void> _startChat() async {
+    setState(() => _isSearching = true);
+
+    final userId = await TempUserManager.getOrCreateTempUsername();
+    await FirestoreService().joinWaitingQueue(userId, userId);
+    await FirestoreService().matchUsers();
+
+    for (int i = 0; i < 10; i++) {
+      final rooms =
+          await FirebaseFirestore.instance
+              .collection('chatRooms')
+              .where('users', arrayContains: userId)
+              .where('isActive', isEqualTo: true)
+              .get();
+
+      if (rooms.docs.isNotEmpty) {
+        final roomId = rooms.docs.first.id;
+
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder:
+                (_) => ChatScreen(
+                  chatRoomId: roomId,
+                  userId: userId,
+                  fromFriendsTab: false,
+                ),
+          ),
+        );
+        return;
+      }
+
+      await Future.delayed(const Duration(seconds: 1));
+    }
+
+    if (!mounted) return;
+    setState(() => _isSearching = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("No match found. Try again shortly.")),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +71,7 @@ class StartChatPage extends StatelessWidget {
             children: [
               const SizedBox(height: 20),
 
-              // 🌈 Logo Pill
+              // 🌈 App Logo Pill
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -45,7 +97,7 @@ class StartChatPage extends StatelessWidget {
 
               // 🌍 Map Image
               Image.asset(
-                'assets/world_map.png',
+                'assets/images/world_map.png',
                 height: 180,
                 width: double.infinity,
                 fit: BoxFit.contain,
@@ -53,7 +105,7 @@ class StartChatPage extends StatelessWidget {
 
               const SizedBox(height: 30),
 
-              // 🧠 Title + Subtitle
+              // ✨ Title + Subtitle
               const Text(
                 "Real talks. Random people.",
                 textAlign: TextAlign.center,
@@ -65,80 +117,56 @@ class StartChatPage extends StatelessWidget {
                 style: TextStyle(
                   color: Colors.black87,
                   fontSize: 16,
-                  fontWeight: FontWeight.w600, // 💡 Slightly bold
+                  fontWeight: FontWeight.w600,
                 ),
               ),
 
               const SizedBox(height: 30),
 
-              // 🟣 Start Chat Button
-              SizedBox(
-                width: 200,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8A56F1),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  onPressed: () async {
-                    final userId =
-                        await TempUserManager.getOrCreateTempUsername();
-
-                    await FirestoreService().joinWaitingQueue(userId, userId);
-                    await FirestoreService().matchUsers();
-
-                    for (int i = 0; i < 10; i++) {
-                      final rooms =
-                          await FirebaseFirestore.instance
-                              .collection('chatRooms')
-                              .where('users', arrayContains: userId)
-                              .where('isActive', isEqualTo: true)
-                              .get();
-
-                      if (rooms.docs.isNotEmpty) {
-                        final roomId = rooms.docs.first.id;
-
-                        if (!context.mounted) return;
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (_) => ChatScreen(
-                                  chatRoomId: roomId,
-                                  userId: userId,
-                                  fromFriendsTab: false,
-                                ),
-                          ),
-                        );
-                        return;
-                      }
-
-                      await Future.delayed(const Duration(seconds: 1));
-                    }
-
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("No match found. Try again shortly."),
+              // 🔄 Searching Animation or Start Button
+              _isSearching
+                  ? Column(
+                    children: [
+                      Lottie.asset(
+                        'assets/animations/animation-search.json',
+                        height: 180,
+                        width: 180,
                       ),
-                    );
-                  },
-                  child: const Text(
-                    "Start Chat",
-                    style: TextStyle(
-                      color: Colors.white, // ✅ White Text
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold, // ✅ Bold
+                      const SizedBox(height: 16),
+                      const Text(
+                        "Finding someone to chat with...",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  )
+                  : SizedBox(
+                    width: 200,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF8A56F1),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      onPressed: _isSearching ? null : _startChat,
+                      child: const Text(
+                        "Start Chat",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
 
               const SizedBox(height: 30),
 
-              // 🎛️ Preferences
+              // 🎛️ Filters
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: const [
