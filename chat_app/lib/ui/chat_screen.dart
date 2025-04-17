@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../firebase/firestore_service.dart';
 import 'home_container_page.dart';
+import 'searching_screen.dart';
 import 'package:logger/logger.dart';
+import 'package:lottie/lottie.dart';
 
 final Logger _logger = Logger();
 Map<String, DateTime> _lastFriendRequests = {};
@@ -31,6 +33,7 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _pendingFriendRequestFrom;
   bool _areFriends = false;
   String? _strangerId;
+  bool _isSearching = false;
 
   @override
   void initState() {
@@ -106,12 +109,14 @@ class _ChatScreenState extends State<ChatScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => const HomeContainerPage(initialIndex: 1),
+        builder: (_) => const HomeContainerPage(initialIndex: 0),
       ),
     );
   }
 
   Future<void> _requeueAndRematch() async {
+    setState(() => _isSearching = true); // ✅ show animation immediately
+
     await firestoreService.joinWaitingQueue(widget.userId, widget.userId);
     await firestoreService.matchUsers();
 
@@ -147,7 +152,10 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       );
     } else {
-      Navigator.pop(context, 'stranger_left');
+      setState(() => _isSearching = false); // ❗ stop animation if no match
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No match found. Try again shortly.")),
+      );
     }
   }
 
@@ -343,7 +351,15 @@ class _ChatScreenState extends State<ChatScreen> {
                   ElevatedButton.icon(
                     icon: const Icon(Icons.refresh),
                     label: const Text("Find Again"),
-                    onPressed: _requeueAndRematch,
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (_) => SearchingScreen(userId: widget.userId),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -353,33 +369,46 @@ class _ChatScreenState extends State<ChatScreen> {
         }
 
         if (_areFriends && hasLeft && data['leaver'] != widget.userId) {
-          _logger.w("👋 Friend left — showing fallback friend screen");
+          _logger.w("👋 Friend left — showing re-search screen");
+
           return HomeContainerPage(
             overrideBody: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    "Your friend left the chat.\nYou can continue chatting via the Friends tab.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 18),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.group),
-                    label: const Text("Go to Friends"),
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (_) => const HomeContainerPage(initialIndex: 1),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
+              child:
+                  _isSearching
+                      ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 🔄 Lottie animation
+                          Lottie.asset(
+                            'assets/animations/animation-search.json',
+                            height: 200,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            "Searching for a new partner...",
+                            style: TextStyle(fontSize: 16),
+                          ),
+                        ],
+                      )
+                      : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            "Your friend left the chat. \nYou can continue chatting via the Friends tab.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 18),
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.refresh),
+                            label: const Text("Find New Partner"),
+                            onPressed: () async {
+                              setState(() => _isSearching = true);
+                              await _requeueAndRematch();
+                            },
+                          ),
+                        ],
+                      ),
             ),
             initialIndex: 0,
           );
@@ -611,24 +640,168 @@ class _ChatScreenState extends State<ChatScreen> {
                           final sender =
                               (msg['sender'] ?? '').toString().trim();
                           final isMe = sender == widget.userId.trim();
+                          final rawReactions = msg['reactions'] ?? {};
+                          final reactions = Map<String, dynamic>.from(
+                            rawReactions,
+                          );
+
+                          final allEmojis =
+                              reactions.values
+                                  .toSet()
+                                  .toList(); // show unique emojis only
 
                           return Align(
                             alignment:
                                 isMe
                                     ? Alignment.centerRight
                                     : Alignment.centerLeft,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              decoration: BoxDecoration(
-                                color:
-                                    isMe ? Colors.blue[100] : Colors.grey[300],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(msg['text'] ?? ''),
+                            child: Column(
+                              crossAxisAlignment:
+                                  isMe
+                                      ? CrossAxisAlignment.end
+                                      : CrossAxisAlignment.start,
+                              children: [
+                                GestureDetector(
+                                  onLongPress: () {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      shape: const RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.vertical(
+                                          top: Radius.circular(20),
+                                        ),
+                                      ),
+                                      builder: (_) {
+                                        final emojis = [
+                                          "😂",
+                                          "😍",
+                                          "😮",
+                                          "😢",
+                                          "👍",
+                                          "❤️",
+                                        ];
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 16,
+                                          ),
+                                          child: Wrap(
+                                            alignment: WrapAlignment.center,
+                                            spacing: 16,
+                                            children:
+                                                emojis.map((emoji) {
+                                                  return GestureDetector(
+                                                    onTap: () async {
+                                                      Navigator.pop(context);
+
+                                                      final messageId =
+                                                          messages[messages
+                                                                      .length -
+                                                                  1 -
+                                                                  index]
+                                                              .id;
+                                                      final messageRef =
+                                                          FirebaseFirestore
+                                                              .instance
+                                                              .collection(
+                                                                'chatRooms',
+                                                              )
+                                                              .doc(
+                                                                widget
+                                                                    .chatRoomId,
+                                                              )
+                                                              .collection(
+                                                                'messages',
+                                                              )
+                                                              .doc(messageId);
+
+                                                      final docSnapshot =
+                                                          await messageRef
+                                                              .get();
+                                                      final existingReactions = Map<
+                                                        String,
+                                                        dynamic
+                                                      >.from(
+                                                        docSnapshot
+                                                                .data()?['reactions'] ??
+                                                            {},
+                                                      );
+                                                      final currentReaction =
+                                                          existingReactions[widget
+                                                              .userId];
+
+                                                      if (currentReaction ==
+                                                          emoji) {
+                                                        // 👎 User already reacted with the same emoji → remove it
+                                                        existingReactions
+                                                            .remove(
+                                                              widget.userId,
+                                                            );
+                                                      } else {
+                                                        // 👍 Add or update user's reaction
+                                                        existingReactions[widget
+                                                                .userId] =
+                                                            emoji;
+                                                      }
+
+                                                      await messageRef.set(
+                                                        {
+                                                          'reactions':
+                                                              existingReactions,
+                                                        },
+                                                        SetOptions(merge: true),
+                                                      );
+                                                    },
+
+                                                    child: Text(
+                                                      emoji,
+                                                      style: const TextStyle(
+                                                        fontSize: 28,
+                                                      ),
+                                                    ),
+                                                  );
+                                                }).toList(),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
+
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    margin: const EdgeInsets.symmetric(
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          isMe
+                                              ? Colors.blue[100]
+                                              : Colors.grey[300],
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(msg['text'] ?? ''),
+                                  ),
+                                ),
+
+                                // 🧠 Display emojis under the message
+                                if (allEmojis.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Wrap(
+                                      spacing: 6,
+                                      children:
+                                          allEmojis.map((emoji) {
+                                            return Text(
+                                              emoji,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                              ),
+                                            );
+                                          }).toList(),
+                                    ),
+                                  ),
+                              ],
                             ),
                           );
                         },
