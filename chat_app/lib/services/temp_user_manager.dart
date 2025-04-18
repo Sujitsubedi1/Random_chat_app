@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TempUserManager {
   static Future<String> getOrCreateTempUsername() async {
@@ -27,6 +28,14 @@ class TempUserManager {
         random.nextInt(9999).toString();
 
     await prefs.setString('tempUserName', newName);
+
+    // ✅ Store in Firestore
+    final docRef = FirebaseFirestore.instance.collection('users').doc(newName);
+    final snapshot = await docRef.get();
+    if (!snapshot.exists) {
+      await docRef.set({'username': newName, 'createdAt': DateTime.now()});
+    }
+
     return newName;
   }
 

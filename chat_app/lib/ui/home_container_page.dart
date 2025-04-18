@@ -36,7 +36,7 @@ class _HomeContainerPageState extends State<HomeContainerPage> {
         const StartChatPage(),
         FriendsPage(userId: name),
         const Placeholder(), // Shop
-        SettingsPage(username: name), // Settings
+        SettingsPage(), // Settings
       ];
     });
   }
