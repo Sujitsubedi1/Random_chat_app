@@ -508,15 +508,37 @@ class _ChatScreenState extends State<ChatScreen> {
                                   child: const Text("Cancel"),
                                 ),
                                 ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          "User blocked (UI only).",
-                                        ),
-                                      ),
-                                    );
+                                  onPressed: () async {
+                                    Navigator.pop(
+                                      context,
+                                    ); // close dialog first
+
+                                    final currentUserId = widget.userId;
+                                    final blockedUserId = _strangerId;
+
+                                    if (blockedUserId != null) {
+                                      await FirebaseFirestore.instance
+                                          .collection('users')
+                                          .doc(currentUserId)
+                                          .collection('blockedUsers')
+                                          .doc(blockedUserId)
+                                          .set({
+                                            'blockedAt':
+                                                FieldValue.serverTimestamp(),
+                                          });
+
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              "User blocked successfully.",
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    }
                                   },
                                   child: const Text("Block"),
                                 ),
