@@ -1,9 +1,148 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/temp_user_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class SettingsPage extends StatelessWidget {
-  final String username;
+class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key});
 
-  const SettingsPage({super.key, required this.username});
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  String _username = "Loading...";
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUsername();
+  }
+
+  Future<void> _fetchUsername() async {
+    final userId = await TempUserManager.getOrCreateTempUsername();
+
+    final doc =
+        await FirebaseFirestore.instance.collection('users').doc(userId).get();
+
+    if (!mounted) return;
+
+    if (doc.exists && doc.data()!.containsKey('username')) {
+      setState(() {
+        _username = doc.data()!['username'];
+      });
+    } else {
+      // fallback to local just in case
+      setState(() {
+        _username = userId;
+      });
+    }
+  }
+
+  void _showEditUsernameDialog(BuildContext context) {
+    final TextEditingController usernameController = TextEditingController(
+      text: _username,
+    );
+
+    final dialogContext = context;
+
+    showDialog(
+      context: dialogContext,
+      builder:
+          (_) => AlertDialog(
+            title: const Text("Change Username"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: usernameController,
+                  decoration: const InputDecoration(
+                    hintText: "Enter new username",
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    "Username must contain at least 4 letters and 4 numbers.",
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final newUsername = usernameController.text.trim();
+
+                  // 1️⃣ Check format: At least 4 letters and 4 digits
+                  final hasMinLetters =
+                      RegExp(r'[a-zA-Z]').allMatches(newUsername).length >= 4;
+                  final hasMinDigits =
+                      RegExp(r'\d').allMatches(newUsername).length >= 4;
+
+                  if (newUsername.isEmpty || !hasMinLetters || !hasMinDigits) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Username must have at least 4 letters and 4 numbers.",
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  // 2️⃣ Check if username already exists in Firestore
+                  final existingQuery =
+                      await FirebaseFirestore.instance
+                          .collection('users')
+                          .where('username', isEqualTo: newUsername)
+                          .get();
+
+                  if (existingQuery.docs.isNotEmpty) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Username already taken. Try something else.",
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  final userId =
+                      await TempUserManager.getOrCreateTempUsername();
+
+                  // 3️⃣ Update Firestore
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(userId)
+                      .set({'username': newUsername}, SetOptions(merge: true));
+
+                  // 4️⃣ Update local storage
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('tempUserName', newUsername);
+
+                  if (!mounted) return;
+
+                  setState(() {
+                    _username = newUsername;
+                  });
+
+                  Navigator.pop(dialogContext);
+                },
+                child: const Text("Save"),
+              ),
+            ],
+          ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +158,7 @@ class SettingsPage extends StatelessWidget {
                 radius: 30,
                 backgroundColor: Colors.blueGrey[100],
                 child: Text(
-                  username.isNotEmpty ? username[0].toUpperCase() : '?',
+                  _username.isNotEmpty ? _username[0].toUpperCase() : '?',
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -32,14 +171,17 @@ class SettingsPage extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        username,
+                        _username,
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                    IconButton(icon: const Icon(Icons.edit), onPressed: () {}),
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () => _showEditUsernameDialog(context),
+                    ),
                   ],
                 ),
               ),
