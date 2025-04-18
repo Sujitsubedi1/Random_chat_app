@@ -15,6 +15,32 @@ class StartChatPage extends StatefulWidget {
 class _StartChatPageState extends State<StartChatPage> {
   bool _isSearching = false;
 
+  // ✅ Step 1: Add variables for online count
+  int _onlineUsers = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeFakeOnlineCount();
+  }
+
+  // ✅ Step 2: Initialize a fake but consistent online count per session
+  void _initializeFakeOnlineCount() {
+    final now = DateTime.now();
+
+    // Set random number between 200–250 based on second
+    _onlineUsers = 200 + (now.second % 51);
+
+    // Update the count every 1 minute
+    Future.delayed(const Duration(minutes: 1), () {
+      if (mounted) {
+        setState(() {
+          _onlineUsers = 200 + (DateTime.now().second % 51);
+        });
+      }
+    });
+  }
+
   Future<void> _startChat() async {
     setState(() => _isSearching = true);
 
@@ -116,9 +142,28 @@ class _StartChatPageState extends State<StartChatPage> {
                 "Chat freely & stay private.",
                 style: TextStyle(
                   color: Colors.black87,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
                 ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // ✅ Online users indicator
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.circle, color: Colors.green, size: 12),
+                  const SizedBox(width: 6),
+                  Text(
+                    "$_onlineUsers+ users online",
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
 
               const SizedBox(height: 30),
