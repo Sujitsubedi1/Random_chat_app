@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../firebase/firestore_service.dart';
@@ -326,6 +328,42 @@ class _ChatScreenState extends State<ChatScreen> {
         final isActive = data['isActive'] ?? false;
         final leaver = data['leaver'] ?? '';
 
+        final blockerId = data['blocker'];
+        final iWasBlocked = blockerId != null && blockerId != widget.userId;
+
+        if (iWasBlocked) {
+          _logger.w("🚫 I was blocked — redirecting");
+
+          return HomeContainerPage(
+            overrideBody: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Stranger left the chat.",
+                    style: TextStyle(fontSize: 18),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.refresh),
+                    label: const Text("Find Again"),
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (_) => SearchingScreen(userId: widget.userId),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            initialIndex: 0,
+          );
+        }
+
         // Wait until we fetch friendship info first
         if (_strangerId == null) {
           return const Center(child: CircularProgressIndicator());
@@ -527,17 +565,28 @@ class _ChatScreenState extends State<ChatScreen> {
                                                 FieldValue.serverTimestamp(),
                                           });
 
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              "User blocked successfully.",
-                                            ),
-                                          ),
-                                        );
-                                      }
+                                      // 👇 Mark chat as inactive + log who blocked
+                                      await FirebaseFirestore.instance
+                                          .collection('chatRooms')
+                                          .doc(widget.chatRoomId)
+                                          .update({
+                                            'isActive': false,
+                                            'leaver': currentUserId,
+                                            'blocker': currentUserId,
+                                          });
+
+                                      if (!mounted) return;
+
+                                      // 👋 Kick the blocker back to home
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (_) => const HomeContainerPage(
+                                                initialIndex: 0,
+                                              ),
+                                        ),
+                                      );
                                     }
                                   },
                                   child: const Text("Block"),
