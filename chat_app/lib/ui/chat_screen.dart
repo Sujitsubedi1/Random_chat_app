@@ -7,6 +7,7 @@ import 'home_container_page.dart';
 import 'searching_screen.dart';
 import 'package:logger/logger.dart';
 import 'package:lottie/lottie.dart';
+import '../services/chat_services.dart';
 
 final Logger _logger = Logger();
 Map<String, DateTime> _lastFriendRequests = {};
@@ -44,43 +45,27 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _fetchStrangerIdAndCheckFriendship() async {
-    _logger.w("🔄 Fetching stranger and friendship...");
+    final result = await ChatService.fetchStrangerAndFriendship(
+      chatRoomId: widget.chatRoomId,
+      currentUserId: widget.userId,
+    );
 
-    final chatDoc =
-        await FirebaseFirestore.instance
-            .collection('chatRooms')
-            .doc(widget.chatRoomId)
-            .get();
-    final data = chatDoc.data();
-    if (data == null) {
-      _logger.w("❌ Chat room doc is null.");
-      return;
-    }
+    if (result == null) return;
 
-    final users = List<String>.from(data['users'] ?? []);
-    final stranger = users.firstWhere((id) => id != widget.userId);
-    setState(() => _strangerId = stranger);
-    _logger.w("👤 Stranger: $stranger");
+    setState(() {
+      _strangerId = result['stranger'];
+      _areFriends = result['isFriend'];
+    });
 
-    final doc =
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(widget.userId)
-            .collection('friends')
-            .doc(stranger)
-            .get();
-    final isFriend = doc.exists;
-    _logger.w("✅ isFriend: $isFriend");
-
-    if (isFriend) {
-      setState(() => _areFriends = true);
-      if (data['isActive'] == false || (data['leaver'] ?? '').isNotEmpty) {
-        _logger.w("♻️ Reviving chat room...");
-        await FirebaseFirestore.instance
-            .collection('chatRooms')
-            .doc(widget.chatRoomId)
-            .update({'isActive': true, 'leaver': ''});
-      }
+    final chatData = result['chatRoomData'];
+    if (_areFriends &&
+        (chatData['isActive'] == false ||
+            (chatData['leaver'] ?? '').isNotEmpty)) {
+      _logger.w("♻️ Reviving chat room...");
+      await FirebaseFirestore.instance
+          .collection('chatRooms')
+          .doc(widget.chatRoomId)
+          .update({'isActive': true, 'leaver': ''});
     }
   }
 
@@ -102,7 +87,7 @@ class _ChatScreenState extends State<ChatScreen> {
           .update({'leaver': widget.userId, 'isActive': false});
 
       if (!_areFriends) {
-        scheduleRoomCleanup(widget.chatRoomId);
+        await ChatService.scheduleRoomCleanup(widget.chatRoomId);
       }
     }
 
@@ -122,26 +107,10 @@ class _ChatScreenState extends State<ChatScreen> {
     await firestoreService.joinWaitingQueue(widget.userId, widget.userId);
     await firestoreService.matchUsers();
 
-    String? newRoomId;
-
-    for (int i = 0; i < 10; i++) {
-      final rooms =
-          await FirebaseFirestore.instance
-              .collection('chatRooms')
-              .where('users', arrayContains: widget.userId)
-              .where('isActive', isEqualTo: true)
-              .get();
-
-      if (rooms.docs.isNotEmpty) {
-        final matchedRoom = rooms.docs.first;
-        if (matchedRoom.id != widget.chatRoomId) {
-          newRoomId = matchedRoom.id;
-          break;
-        }
-      }
-
-      await Future.delayed(const Duration(seconds: 1));
-    }
+    final newRoomId = await ChatService.findNewMatchForUser(
+      widget.userId,
+      widget.chatRoomId,
+    );
 
     if (!mounted) return;
 
@@ -150,7 +119,7 @@ class _ChatScreenState extends State<ChatScreen> {
         context,
         MaterialPageRoute(
           builder:
-              (_) => ChatScreen(chatRoomId: newRoomId!, userId: widget.userId),
+              (_) => ChatScreen(chatRoomId: newRoomId, userId: widget.userId),
         ),
       );
     } else {
@@ -159,24 +128,6 @@ class _ChatScreenState extends State<ChatScreen> {
         const SnackBar(content: Text("No match found. Try again shortly.")),
       );
     }
-  }
-
-  Future<void> scheduleRoomCleanup(String roomId) async {
-    await Future.delayed(const Duration(minutes: 1));
-    final docRef = FirebaseFirestore.instance
-        .collection('chatRooms')
-        .doc(roomId);
-    final docSnap = await docRef.get();
-
-    if (!docSnap.exists || docSnap.data()?['isActive'] == true) return;
-
-    final messagesSnapshot = await docRef.collection('messages').get();
-    final batch = FirebaseFirestore.instance.batch();
-    for (var msg in messagesSnapshot.docs) {
-      batch.delete(msg.reference);
-    }
-    batch.delete(docRef);
-    await batch.commit();
   }
 
   void _sendMessage() {
