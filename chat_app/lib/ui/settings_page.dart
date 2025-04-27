@@ -58,10 +58,14 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 TextField(
                   controller: usernameController,
+                  maxLength: 20, // ✅ Limit input to 20 characters
                   decoration: const InputDecoration(
                     hintText: "Enter new username",
+                    counterText:
+                        "", // Optional: hides character counter under the field
                   ),
                 ),
+
                 const SizedBox(height: 8),
                 const Align(
                   alignment: Alignment.centerLeft,
@@ -81,24 +85,43 @@ class _SettingsPageState extends State<SettingsPage> {
                 onPressed: () async {
                   final newUsername = usernameController.text.trim();
 
-                  // 1️⃣ Check format: At least 4 letters and 4 digits
+                  // 1️⃣ Basic format: Only letters and numbers, no spaces/symbols
+                  final validCharacters = RegExp(
+                    r'^[a-zA-Z0-9]+$',
+                  ).hasMatch(newUsername);
+                  final isCorrectLength = newUsername.length <= 20;
+
+                  // 2️⃣ Advanced rule: At least 4 letters and 4 digits
                   final hasMinLetters =
                       RegExp(r'[a-zA-Z]').allMatches(newUsername).length >= 4;
                   final hasMinDigits =
                       RegExp(r'\d').allMatches(newUsername).length >= 4;
 
-                  if (newUsername.isEmpty || !hasMinLetters || !hasMinDigits) {
+                  if (newUsername.isEmpty ||
+                      !validCharacters ||
+                      !isCorrectLength) {
                     ScaffoldMessenger.of(dialogContext).showSnackBar(
                       const SnackBar(
                         content: Text(
-                          "Username must have at least 4 letters and 4 numbers.",
+                          "Username must be only letters and numbers, no spaces, max 20 characters.",
                         ),
                       ),
                     );
                     return;
                   }
 
-                  // 2️⃣ Check if username already exists in Firestore
+                  if (!hasMinLetters || !hasMinDigits) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Username must contain at least 4 letters and 4 numbers.",
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  // 3️⃣ Check if username already exists
                   final existingQuery =
                       await FirebaseFirestore.instance
                           .collection('users')
@@ -116,16 +139,16 @@ class _SettingsPageState extends State<SettingsPage> {
                     return;
                   }
 
+                  // 4️⃣ Update Firestore
                   final userId =
                       await TempUserManager.getOrCreateTempUsername();
 
-                  // 3️⃣ Update Firestore
                   await FirebaseFirestore.instance
                       .collection('users')
                       .doc(userId)
                       .set({'username': newUsername}, SetOptions(merge: true));
 
-                  // 4️⃣ Update local storage
+                  // 5️⃣ Update local storage
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.setString('tempUserName', newUsername);
 

@@ -90,148 +90,186 @@ class _StartChatPageState extends State<StartChatPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 20),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 20),
 
-              // 🌈 App Logo Pill
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFEF5DA8), Color(0xFF8A56F1)],
+                // 🌈 App Logo Pill
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
                   ),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: const Text(
-                  "Random Chat",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFEF5DA8), Color(0xFF8A56F1)],
+                    ),
+                    borderRadius: BorderRadius.circular(30),
                   ),
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              // 🌍 Map Image
-              Image.asset(
-                'assets/images/world_map.png',
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.contain,
-              ),
-
-              const SizedBox(height: 30),
-
-              // ✨ Title + Subtitle
-              const Text(
-                "Real talks. Random people.",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                "Chat freely & stay private.",
-                style: TextStyle(
-                  color: Colors.black87,
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // ✅ Online users indicator
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.circle, color: Colors.green, size: 12),
-                  const SizedBox(width: 6),
-                  Text(
-                    "$_onlineUsers+ users online",
-                    style: const TextStyle(
-                      color: Colors.black87,
-                      fontSize: 16,
+                  child: const Text(
+                    "Random Chat",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                ],
-              ),
+                ),
 
-              const SizedBox(height: 30),
+                const SizedBox(height: 30),
 
-              // 🔄 Searching Animation or Start Button
-              _isSearching
-                  ? Column(
-                    children: [
-                      Lottie.asset(
-                        'assets/animations/animation-search.json',
-                        height: 180,
-                        width: 180,
+                // 🌍 Map Image
+                Image.asset(
+                  'assets/images/world_map.png',
+                  height: 180,
+                  width: double.infinity,
+                  fit: BoxFit.contain,
+                ),
+
+                const SizedBox(height: 30),
+
+                // ✨ Title + Subtitle
+                const Text(
+                  "Real talks. Random people.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "Chat freely & stay private.",
+                  style: TextStyle(
+                    color: Colors.black87,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // ✅ Online users indicator
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.circle, color: Colors.green, size: 12),
+                    const SizedBox(width: 6),
+                    Text(
+                      "$_onlineUsers+ users online",
+                      style: const TextStyle(
+                        color: Colors.black87,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        "Finding someone to chat with...",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 30),
+
+                // 🔄 Searching Animation or Start Button
+                _isSearching
+                    ? Column(
+                      children: [
+                        Lottie.asset(
+                          'assets/animations/animation-search.json',
+                          height: 180,
+                          width: 180,
                         ),
-                      ),
-                    ],
-                  )
-                  : SizedBox(
-                    width: 200,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF8A56F1),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
+                        const SizedBox(height: 16),
+                        const Text(
+                          "Finding someone to chat with...",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                      onPressed: _isSearching ? null : _startChat,
-                      child: const Text(
-                        "Start Chat",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                        const SizedBox(
+                          height: 20,
+                        ), // ➡️ Add spacing before cancel button
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.cancel),
+                          label: const Text("Cancel"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.redAccent,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          onPressed: () async {
+                            final userId =
+                                await TempUserManager.getOrCreateTempUsername();
+
+                            try {
+                              await FirebaseFirestore.instance
+                                  .collection('waitingQueue')
+                                  .doc(userId)
+                                  .delete();
+                            } catch (e) {
+                              // Ignore if not found
+                            }
+
+                            if (mounted) {
+                              setState(() {
+                                _isSearching = false;
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    )
+                    : SizedBox(
+                      width: 200,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF8A56F1),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                        onPressed: _isSearching ? null : _startChat,
+                        child: const Text(
+                          "Start Chat",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  ),
 
-              const SizedBox(height: 30),
+                const SizedBox(height: 30),
 
-              // 🎛️ Filters
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: const [
-                  Row(
-                    children: [
-                      Icon(Icons.people_alt_outlined, size: 18),
-                      SizedBox(width: 6),
-                      Text("All genders"),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Icon(Icons.favorite_border, size: 18),
-                      SizedBox(width: 6),
-                      Text("Any interests"),
-                    ],
-                  ),
-                ],
-              ),
-            ],
+                // 🎛️ Filters
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: const [
+                    Row(
+                      children: [
+                        Icon(Icons.people_alt_outlined, size: 18),
+                        SizedBox(width: 6),
+                        Text("All genders"),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Icon(Icons.favorite_border, size: 18),
+                        SizedBox(width: 6),
+                        Text("Any interests"),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

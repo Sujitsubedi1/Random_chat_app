@@ -8,6 +8,7 @@ import 'searching_screen.dart';
 import 'package:logger/logger.dart';
 import 'package:lottie/lottie.dart';
 import '../services/chat_services.dart';
+import '../services/temp_user_manager.dart';
 
 final Logger _logger = Logger();
 Map<String, DateTime> _lastFriendRequests = {};
@@ -446,7 +447,6 @@ class _ChatScreenState extends State<ChatScreen> {
                       ? Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // 🔄 Lottie animation
                           Lottie.asset(
                             'assets/animations/animation-search.json',
                             height: 200,
@@ -455,6 +455,42 @@ class _ChatScreenState extends State<ChatScreen> {
                           const Text(
                             "Searching for a new partner...",
                             style: TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(height: 20), // 👈 Add some space
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.cancel),
+                            label: const Text("Cancel"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                            ),
+                            // We'll fill this logic next step!
+                            onPressed: () async {
+                              final userId =
+                                  await TempUserManager.getOrCreateTempUsername();
+
+                              try {
+                                // ✅ 1. Remove user from waitingQueue
+                                await FirebaseFirestore.instance
+                                    .collection('waitingQueue')
+                                    .doc(userId)
+                                    .delete();
+                              } catch (e) {
+                                // It's okay if user was already not in queue (ignore errors)
+                              }
+
+                              // ✅ 2. Navigate Home
+                              if (context.mounted) {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (_) => const HomeContainerPage(
+                                          initialIndex: 0,
+                                        ),
+                                  ),
+                                );
+                              }
+                            },
                           ),
                         ],
                       )
