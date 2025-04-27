@@ -239,6 +239,67 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  Future<void> _handleUnfriend() async {
+    _logger.w("👋 Unfriending user...");
+
+    try {
+      // 1. Update chatRoom document
+      await FirebaseFirestore.instance
+          .collection('chatRooms')
+          .doc(widget.chatRoomId)
+          .update({
+            'isActive': false,
+            'leaver': widget.userId,
+            'unfriended': true,
+          });
+
+      _logger.w("✅ Chat room updated: unfriended and inactive.");
+
+      // 2. Delete friendship documents
+      if (_strangerId != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.userId)
+            .collection('friends')
+            .doc(_strangerId!)
+            .delete();
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(_strangerId!)
+            .collection('friends')
+            .doc(widget.userId)
+            .delete();
+      }
+
+      // 3. Schedule room cleanup after 1 min
+      await ChatService.scheduleRoomCleanup(widget.chatRoomId);
+
+      if (!mounted) return;
+
+      // 4. Show SnackBar
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("You have unfriended the user.")),
+      );
+
+      // 5. Navigate Home
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const HomeContainerPage(initialIndex: 0),
+        ),
+      );
+    } catch (e) {
+      _logger.e("❌ Error during unfriending: $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Something went wrong. Please try again."),
+        ),
+      );
+    }
+  }
+
   Widget _buildMessageInput() {
     return Row(
       children: [
@@ -281,6 +342,24 @@ class _ChatScreenState extends State<ChatScreen> {
 
         final blockerId = data['blocker'];
         final iWasBlocked = blockerId != null && blockerId != widget.userId;
+        final unfriended = data['unfriended'] ?? false;
+
+        if (unfriended == true) {
+          _logger.w("👋 Unfriended detected — leaving chat.");
+
+          Future.microtask(() {
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const HomeContainerPage(initialIndex: 0),
+                ),
+              );
+            }
+          });
+
+          return const SizedBox(); // Empty widget temporarily while navigating
+        }
 
         if (iWasBlocked) {
           _logger.w("🚫 I was blocked — redirecting");
@@ -421,6 +500,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     icon: const Icon(Icons.person_add),
                     onPressed: _handleFriendRequest,
                   ),
+
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert),
                   shape: RoundedRectangleBorder(
@@ -450,6 +530,20 @@ class _ChatScreenState extends State<ChatScreen> {
                             ],
                           ),
                         ),
+                        if (_areFriends) // ✅ only show Unfriend if friends
+                          PopupMenuItem<String>(
+                            value: 'unfriend',
+                            child: Row(
+                              children: const [
+                                Icon(
+                                  Icons.person_remove,
+                                  color: Colors.orangeAccent,
+                                ),
+                                SizedBox(width: 10),
+                                Text("Unfriend"),
+                              ],
+                            ),
+                          ),
                       ],
                   onSelected: (value) {
                     if (value == 'report') {
@@ -516,7 +610,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                                 FieldValue.serverTimestamp(),
                                           });
 
-                                      // 👇 Mark chat as inactive + log who blocked
+                                      // Mark chat as inactive + log who blocked
                                       await FirebaseFirestore.instance
                                           .collection('chatRooms')
                                           .doc(widget.chatRoomId)
@@ -528,7 +622,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
                                       if (!mounted) return;
 
-                                      // 👋 Kick the blocker back to home
                                       Navigator.pushReplacement(
                                         context,
                                         MaterialPageRoute(
@@ -545,6 +638,8 @@ class _ChatScreenState extends State<ChatScreen> {
                               ],
                             ),
                       );
+                    } else if (value == 'unfriend') {
+                      _handleUnfriend(); // ✅ call our new method (we’ll build this next!)
                     }
                   },
                 ),
