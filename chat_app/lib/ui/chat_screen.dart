@@ -273,8 +273,21 @@ class _ChatScreenState extends State<ChatScreen> {
             .delete();
       }
 
-      // 3. Schedule room cleanup after 1 min
-      await ChatService.scheduleRoomCleanup(widget.chatRoomId);
+      // 3. IMMEDIATELY DELETE messages + chatRoom
+      final docRef = FirebaseFirestore.instance
+          .collection('chatRooms')
+          .doc(widget.chatRoomId);
+      final messagesSnapshot = await docRef.collection('messages').get();
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (var msg in messagesSnapshot.docs) {
+        batch.delete(msg.reference);
+      }
+
+      batch.delete(docRef);
+      await batch.commit();
+
+      _logger.w("✅ Chat room and all messages deleted immediately.");
 
       if (!mounted) return;
 

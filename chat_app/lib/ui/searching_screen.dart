@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../firebase/firestore_service.dart';
 import 'chat_screen.dart';
 import 'package:lottie/lottie.dart';
+import './home_container_page.dart';
 
 class SearchingScreen extends StatefulWidget {
   final String userId;
@@ -14,6 +15,8 @@ class SearchingScreen extends StatefulWidget {
 }
 
 class _SearchingScreenState extends State<SearchingScreen> {
+  bool _isCancelling = false;
+
   @override
   void initState() {
     super.initState();
@@ -25,6 +28,8 @@ class _SearchingScreenState extends State<SearchingScreen> {
     await FirestoreService().matchUsers();
 
     for (int i = 0; i < 10; i++) {
+      if (_isCancelling) return; // if cancelled, stop searching!
+
       final rooms =
           await FirebaseFirestore.instance
               .collection('chatRooms')
@@ -48,14 +53,39 @@ class _SearchingScreenState extends State<SearchingScreen> {
         );
         return;
       }
+
       await Future.delayed(const Duration(seconds: 1));
     }
 
-    if (!mounted) return;
+    if (!mounted || _isCancelling) return;
+
     Navigator.pop(context); // fallback
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("No match found. Try again shortly.")),
     );
+  }
+
+  Future<void> _cancelSearch() async {
+    setState(() => _isCancelling = true);
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('waitingQueue')
+          .doc(widget.userId)
+          .delete();
+    } catch (e) {
+      // It's fine if already not in queue
+    }
+
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const HomeContainerPage(initialIndex: 0),
+        ),
+        (route) => false,
+      );
+    }
   }
 
   @override
@@ -74,6 +104,22 @@ class _SearchingScreenState extends State<SearchingScreen> {
             const Text(
               "Searching for a chat partner...",
               style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.cancel),
+              label: const Text("Cancel"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              onPressed: _cancelSearch,
             ),
           ],
         ),
