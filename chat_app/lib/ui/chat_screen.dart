@@ -544,6 +544,13 @@ class _ChatScreenState extends State<ChatScreen> {
                 onPressed: _handleExitChat,
               ),
               actions: [
+                if (!widget.fromFriendsTab)
+                  IconButton(
+                    icon: const Icon(Icons.skip_next),
+                    tooltip: "Next",
+                    onPressed: () {}, // No logic yet
+                  ),
+
                 if (!_areFriends)
                   IconButton(
                     icon: const Icon(Icons.person_add),
