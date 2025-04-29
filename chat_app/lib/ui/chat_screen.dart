@@ -13,8 +13,6 @@ import '../services/temp_user_manager.dart';
 final Logger _logger = Logger();
 Map<String, DateTime> _lastFriendRequests = {};
 
-final TextEditingController _controller = TextEditingController();
-
 class ChatScreen extends StatefulWidget {
   final String chatRoomId;
   final String userId;
@@ -38,10 +36,12 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _areFriends = false;
   String? _strangerId;
   bool _isSearching = false;
+  late TextEditingController _controller;
 
   @override
   void initState() {
     super.initState();
+    _controller = TextEditingController();
     _fetchStrangerIdAndCheckFriendship();
   }
 
@@ -1031,5 +1031,11 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }
