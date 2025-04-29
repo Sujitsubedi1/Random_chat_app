@@ -48,6 +48,8 @@ class _StartChatPageState extends State<StartChatPage> {
     await FirestoreService().joinWaitingQueue(userId, userId);
     await FirestoreService().matchUsers();
 
+    bool matched = false;
+
     for (int i = 0; i < 10; i++) {
       final rooms =
           await FirebaseFirestore.instance
@@ -71,18 +73,31 @@ class _StartChatPageState extends State<StartChatPage> {
                 ),
           ),
         );
-        return;
+        matched = true;
+        break;
       }
 
       await Future.delayed(const Duration(seconds: 1));
     }
 
-    if (!mounted) return;
-    setState(() => _isSearching = false);
+    // 👇 Only if after 10 seconds no match was found
+    if (!matched) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('waitingQueue')
+            .doc(userId)
+            .delete();
+      } catch (e) {
+        // If already deleted, ignore
+      }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("No match found. Try again shortly.")),
-    );
+      if (!mounted) return;
+      setState(() => _isSearching = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No match found. Try again shortly.")),
+      );
+    }
   }
 
   @override

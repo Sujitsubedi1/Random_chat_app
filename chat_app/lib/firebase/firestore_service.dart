@@ -8,15 +8,26 @@ class FirestoreService {
 
   /// ➕ Adds a user to the waitingQueue with a timestamp
   Future<void> joinWaitingQueue(String tempUserId, String tempUserName) async {
-    logger.i("➕ Adding $tempUserId to waitingQueue");
-
-    await FirebaseFirestore.instance
+    final queueRef = FirebaseFirestore.instance
         .collection('waitingQueue')
-        .doc(tempUserId)
-        .set({
-          'joinedAt': FieldValue.serverTimestamp(),
-          'tempUserName': tempUserName,
-        });
+        .doc(tempUserId);
+
+    // 🔥 Step 1: Remove the user if already in queue
+    try {
+      await queueRef.delete();
+      logger.i("🗑️ Cleaned up old queue entry for $tempUserId");
+    } catch (e) {
+      logger.w(
+        "⚠️ No old entry to delete for $tempUserId (or already deleted): $e",
+      );
+    }
+
+    // ✅ Step 2: Add fresh entry
+    logger.i("➕ Adding $tempUserId to waitingQueue");
+    await queueRef.set({
+      'joinedAt': FieldValue.serverTimestamp(),
+      'tempUserName': tempUserName,
+    });
   }
 
   /// 🤝 Matches two users and creates a chatRoom
