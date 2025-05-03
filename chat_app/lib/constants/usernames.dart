@@ -10,4 +10,8 @@ const List<String> predefinedUsernames = [
   "FunkyMonkey",
   "CoconutKid",
   "AgentX",
+  "JuicyDoctor",
+  "BuggyAnt",
+  "LovelyElephant",
+  "NaughtyPlumber",
 ];
