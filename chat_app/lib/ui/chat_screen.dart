@@ -42,7 +42,30 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _controller = TextEditingController();
+    _identifyStranger();
     _fetchStrangerIdAndCheckFriendship();
+  }
+
+  void _identifyStranger() async {
+    final doc =
+        await FirebaseFirestore.instance
+            .collection('chatRooms')
+            .doc(widget.chatRoomId)
+            .get();
+
+    if (doc.exists) {
+      final data = doc.data();
+      if (data != null && data['users'] is List) {
+        final users = List<String>.from(data['users']);
+        final stranger = users.firstWhere(
+          (id) => id != widget.userId,
+          orElse: () => 'Unknown',
+        );
+        setState(() {
+          _strangerId = stranger;
+        });
+      }
+    }
   }
 
   Future<void> _fetchStrangerIdAndCheckFriendship() async {
@@ -538,7 +561,37 @@ class _ChatScreenState extends State<ChatScreen> {
           },
           child: Scaffold(
             appBar: AppBar(
-              title: const Text("Chat Room"),
+              title: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Colors.blueGrey,
+                    child: Text(
+                      (_strangerId?.isNotEmpty ?? false)
+                          ? _strangerId![0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      _strangerId ?? "Unknown",
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 18,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back),
                 onPressed: _handleExitChat,
@@ -701,6 +754,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ],
             ),
+
             body: Column(
               children: [
                 Expanded(
