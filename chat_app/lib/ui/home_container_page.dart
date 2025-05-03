@@ -5,6 +5,7 @@ import '../services/temp_user_manager.dart';
 import 'settings_page.dart';
 import '../firebase//firestore_service.dart';
 import 'package:logger/logger.dart';
+import 'shop_page.dart';
 
 final FirestoreService _firestoreService = FirestoreService();
 final logger = Logger();
@@ -40,7 +41,7 @@ class _HomeContainerPageState extends State<HomeContainerPage> {
       _pages = [
         const StartChatPage(),
         FriendsPage(userId: name),
-        const Placeholder(), // Shop
+        ShopPage(), // Shop
         SettingsPage(), // Settings
       ];
     });
