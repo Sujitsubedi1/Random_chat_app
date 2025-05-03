@@ -1,12 +1,13 @@
+// usernames.dart
 const List<String> predefinedUsernames = [
-  "A",
-  "B",
-  "C",
-  "D",
-  "E",
-  "F",
-  "G",
-  "H",
-  "I",
-  "J",
+  "PineApple33",
+  "MangoManiac",
+  "Stranger007",
+  "GhostWriter",
+  "PixelNinja",
+  "SkyWalker",
+  "SilentWolf",
+  "FunkyMonkey",
+  "CoconutKid",
+  "AgentX",
 ];
