@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../constants/usernames.dart'; // ⬅️ now importing from shared list
 
 class TempUserManager {
   static Future<String> getOrCreateTempUsername() async {
@@ -9,22 +10,9 @@ class TempUserManager {
 
     if (existing != null) return existing;
 
-    const usernames = [
-      "PineApple33",
-      "MangoManiac",
-      "Stranger007",
-      "GhostWriter",
-      "PixelNinja",
-      "SkyWalker",
-      "SilentWolf",
-      "FunkyMonkey",
-      "CoconutKid",
-      "AgentX",
-    ];
-
     final random = Random();
     final newName =
-        usernames[random.nextInt(usernames.length)] +
+        predefinedUsernames[random.nextInt(predefinedUsernames.length)] +
         random.nextInt(9999).toString();
 
     await prefs.setString('tempUserName', newName);

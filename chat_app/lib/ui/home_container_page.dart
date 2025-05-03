@@ -3,6 +3,11 @@ import 'start_chat_page.dart';
 import 'friends_page.dart'; // import your FriendsPage
 import '../services/temp_user_manager.dart';
 import 'settings_page.dart';
+import '../firebase//firestore_service.dart';
+import 'package:logger/logger.dart';
+
+final FirestoreService _firestoreService = FirestoreService();
+final logger = Logger();
 
 class HomeContainerPage extends StatefulWidget {
   final Widget? overrideBody;
@@ -55,11 +60,21 @@ class _HomeContainerPageState extends State<HomeContainerPage> {
               : _pages[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) {
+        onTap: (index) async {
+          // If leaving the "Find" tab (index 0), remove user from waitingQueue
+          if (_currentIndex == 0 && index != 0 && _tempUserName != null) {
+            logger.i("🔄 Attempting to leave queue for user: $_tempUserName");
+            await _firestoreService.leaveWaitingQueue(_tempUserName!);
+            logger.w(
+              "✅ Removed ${_tempUserName!} from waitingQueue due to tab switch",
+            );
+          }
+
           setState(() {
             _currentIndex = index;
           });
         },
+
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.blueAccent,
         unselectedItemColor: Colors.grey,

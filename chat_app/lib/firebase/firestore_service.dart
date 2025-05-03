@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logger/logger.dart';
-import '../constants/usernames.dart';
+import 'package:chat_app/constants/usernames.dart'; // ✅
 
 class FirestoreService {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
@@ -152,5 +152,17 @@ class FirestoreService {
     await docRef.set({
       'blockedUsers': FieldValue.arrayUnion([blockedId]),
     }, SetOptions(merge: true));
+  }
+
+  Future<void> leaveWaitingQueue(String userId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('waitingQueue')
+          .doc(userId)
+          .delete();
+      logger.w("🗑️ Successfully removed $userId from waitingQueue");
+    } catch (e) {
+      logger.w("⚠️ Could not remove $userId from waitingQueue: $e");
+    }
   }
 }
