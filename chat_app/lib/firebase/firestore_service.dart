@@ -155,6 +155,8 @@ class FirestoreService {
   }
 
   Future<void> leaveWaitingQueue(String userId) async {
+    logger.w("🔥 leaveWaitingQueue() called for $userId");
+
     try {
       await FirebaseFirestore.instance
           .collection('waitingQueue')

@@ -35,17 +35,6 @@ class _FriendsPageState extends State<FriendsPage> {
     }
 
     final matchedRoom = matches.first;
-    final docRef = FirebaseFirestore.instance
-        .collection('chatRooms')
-        .doc(matchedRoom.id);
-
-    // 👇 Check and reactivate if they are friends
-    final isActive = matchedRoom['isActive'] ?? true;
-    final leaver = matchedRoom['leaver'] ?? '';
-
-    if (!isActive || leaver != '') {
-      await docRef.update({'isActive': true, 'leaver': ''});
-    }
 
     if (!mounted) return;
     Navigator.push(
@@ -62,7 +51,6 @@ class _FriendsPageState extends State<FriendsPage> {
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -76,11 +64,23 @@ class _FriendsPageState extends State<FriendsPage> {
                 .where('users', arrayContains: widget.userId)
                 .snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text("You have no active chats."));
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
           }
 
-          final rooms = snapshot.data!.docs;
+          final rooms =
+              snapshot.data!.docs.where((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                final blocker = data['blocker'];
+                final unfriended = data['unfriended'] ?? false;
+
+                return blocker == null && unfriended == false;
+              }).toList();
+
+          // ✅ If no valid rooms, show fallback message
+          if (rooms.isEmpty) {
+            return const Center(child: Text("You have no active chats."));
+          }
 
           // Build friend list from rooms
           final friendsData =

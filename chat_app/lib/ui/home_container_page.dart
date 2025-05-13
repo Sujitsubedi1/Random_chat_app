@@ -5,6 +5,7 @@ import '../services/temp_user_manager.dart';
 import 'settings_page.dart';
 import '../firebase//firestore_service.dart';
 import 'package:logger/logger.dart';
+import 'shop_page.dart';
 
 final FirestoreService _firestoreService = FirestoreService();
 final logger = Logger();
@@ -40,7 +41,7 @@ class _HomeContainerPageState extends State<HomeContainerPage> {
       _pages = [
         const StartChatPage(),
         FriendsPage(userId: name),
-        const Placeholder(), // Shop
+        ShopPage(), // Shop
         SettingsPage(), // Settings
       ];
     });
@@ -63,7 +64,6 @@ class _HomeContainerPageState extends State<HomeContainerPage> {
         onTap: (index) async {
           // If leaving the "Find" tab (index 0), remove user from waitingQueue
           if (_currentIndex == 0 && index != 0 && _tempUserName != null) {
-            logger.i("🔄 Attempting to leave queue for user: $_tempUserName");
             await _firestoreService.leaveWaitingQueue(_tempUserName!);
             logger.w(
               "✅ Removed ${_tempUserName!} from waitingQueue due to tab switch",
