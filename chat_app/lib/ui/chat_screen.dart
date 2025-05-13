@@ -83,6 +83,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final chatData = result['chatRoomData'];
     if (_areFriends &&
+        !widget
+            .fromFriendsTab && // ✅ Only revive if NOT coming from Friends tab
         (chatData['isActive'] == false ||
             (chatData['leaver'] ?? '').isNotEmpty)) {
       _logger.w("♻️ Reviving chat room...");
@@ -154,9 +156,31 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void _sendMessage() {
+  void _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+
+    final doc =
+        await FirebaseFirestore.instance
+            .collection('chatRooms')
+            .doc(widget.chatRoomId)
+            .get();
+
+    final data = doc.data();
+    final blockerId = data?['blocker'];
+    final iWasBlocked = blockerId != null && blockerId != widget.userId;
+    final iBlocked = blockerId == widget.userId;
+
+    if (iWasBlocked || iBlocked) {
+      _logger.w("🚫 Message blocked — cannot send.");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("You can’t send messages in a blocked chat."),
+        ),
+      );
+      return;
+    }
 
     final messageData = {
       'text': text,
@@ -164,15 +188,13 @@ class _ChatScreenState extends State<ChatScreen> {
       'timestamp': FieldValue.serverTimestamp(),
     };
 
-    // 1. Add message
-    FirebaseFirestore.instance
+    await FirebaseFirestore.instance
         .collection('chatRooms')
         .doc(widget.chatRoomId)
         .collection('messages')
         .add(messageData);
 
-    // 2. Update last message & timestamp at room level
-    FirebaseFirestore.instance
+    await FirebaseFirestore.instance
         .collection('chatRooms')
         .doc(widget.chatRoomId)
         .update({
@@ -379,28 +401,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
         final blockerId = data['blocker'];
         final iWasBlocked = blockerId != null && blockerId != widget.userId;
-        final unfriended = data['unfriended'] ?? false;
-
-        if (unfriended == true) {
-          _logger.w("👋 Unfriended detected — leaving chat.");
-
-          Future.microtask(() {
-            if (mounted) {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const HomeContainerPage(initialIndex: 0),
-                ),
-              );
-            }
-          });
-
-          return const SizedBox(); // Empty widget temporarily while navigating
-        }
-
+        // 🔒 Immediately stop showing messages if either user blocked
         if (iWasBlocked) {
-          _logger.w("🚫 I was blocked — redirecting");
-
           return HomeContainerPage(
             overrideBody: Center(
               child: Column(
@@ -429,6 +431,35 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             initialIndex: 0,
           );
+        } else if (blockerId == widget.userId) {
+          return HomeContainerPage(
+            overrideBody: Center(
+              child: const Text(
+                "You have blocked this user.",
+                style: TextStyle(fontSize: 18),
+              ),
+            ),
+            initialIndex: 0,
+          );
+        }
+
+        final unfriended = data['unfriended'] ?? false;
+
+        if (unfriended == true) {
+          _logger.w("👋 Unfriended detected — leaving chat.");
+
+          Future.microtask(() {
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const HomeContainerPage(initialIndex: 0),
+                ),
+              );
+            }
+          });
+
+          return const SizedBox(); // Empty widget temporarily while navigating
         }
 
         // Wait until we fetch friendship info first
