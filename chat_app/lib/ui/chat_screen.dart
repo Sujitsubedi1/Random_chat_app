@@ -1031,13 +1031,26 @@ class _ChatScreenState extends State<ChatScreen> {
                                     margin: const EdgeInsets.symmetric(
                                       vertical: 4,
                                     ),
+
                                     decoration: BoxDecoration(
                                       color:
                                           isMe
-                                              ? Colors.blue[100]
-                                              : Colors.grey[300],
-                                      borderRadius: BorderRadius.circular(12),
+                                              ? Color(0xFFD2ECFF)
+                                              : Color(
+                                                0xFFF0F0F0,
+                                              ), // Greenish for you, light gray for others
+                                      borderRadius: BorderRadius.only(
+                                        topLeft: Radius.circular(16),
+                                        topRight: Radius.circular(16),
+                                        bottomLeft: Radius.circular(
+                                          isMe ? 16 : 0,
+                                        ),
+                                        bottomRight: Radius.circular(
+                                          isMe ? 0 : 16,
+                                        ),
+                                      ),
                                     ),
+
                                     child: Text(msg['text'] ?? ''),
                                   ),
                                 ),
