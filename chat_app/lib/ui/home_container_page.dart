@@ -65,9 +65,6 @@ class _HomeContainerPageState extends State<HomeContainerPage> {
           // If leaving the "Find" tab (index 0), remove user from waitingQueue
           if (_currentIndex == 0 && index != 0 && _tempUserName != null) {
             await _firestoreService.leaveWaitingQueue(_tempUserName!);
-            logger.w(
-              "✅ Removed ${_tempUserName!} from waitingQueue due to tab switch",
-            );
           }
 
           setState(() {
