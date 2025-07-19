@@ -7,7 +7,7 @@ import 'home_container_page.dart';
 import 'searching_screen.dart';
 import 'package:logger/logger.dart';
 // import 'package:lottie/lottie.dart';
-import '../services/chat_services.dart';
+// import '../services/chat_services.dart';
 // import '../services/temp_user_manager.dart';
 
 final Logger _logger = Logger();
@@ -56,25 +56,24 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _handleExitChat() async {
-    final chatDoc =
-        await FirebaseFirestore.instance
-            .collection('chatRooms')
-            .doc(widget.chatRoomId)
-            .get();
-
-    final data = chatDoc.data();
-    if (data == null) return;
-
-    await FirebaseFirestore.instance
+  void _handleExitChat() async {
+    final chatRef = FirebaseFirestore.instance
         .collection('chatRooms')
-        .doc(widget.chatRoomId)
-        .update({'leaver': widget.userId, 'isActive': false});
+        .doc(widget.chatRoomId);
 
-    await ChatService.scheduleRoomCleanup(widget.chatRoomId);
+    // Mark the chat as inactive and set the leaver
+    await chatRef.update({'isActive': false, 'leaver': widget.userId});
 
+    // Delete all messages in the subcollection
+    final messagesRef = chatRef.collection('messages');
+    final messagesSnapshot = await messagesRef.get();
+
+    for (final doc in messagesSnapshot.docs) {
+      await doc.reference.delete();
+    }
+
+    // Navigate user back to home
     if (!mounted) return;
-
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -87,29 +86,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    final doc =
-        await FirebaseFirestore.instance
-            .collection('chatRooms')
-            .doc(widget.chatRoomId)
-            .get();
-
-    final data = doc.data();
-    final blockerId = data?['blocker'];
-    final iWasBlocked = blockerId != null && blockerId != widget.userId;
-    final iBlocked = blockerId == widget.userId;
-
-    if (iWasBlocked || iBlocked) {
-      _logger.w("🚫 Message blocked — cannot send.");
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("You can’t send messages in a blocked chat."),
-        ),
-      );
-      return;
-    }
-
-    final messageData = {
+    final newMessage = {
       'text': text,
       'sender': widget.userId,
       'timestamp': FieldValue.serverTimestamp(),
@@ -119,15 +96,7 @@ class _ChatScreenState extends State<ChatScreen> {
         .collection('chatRooms')
         .doc(widget.chatRoomId)
         .collection('messages')
-        .add(messageData);
-
-    await FirebaseFirestore.instance
-        .collection('chatRooms')
-        .doc(widget.chatRoomId)
-        .update({
-          'lastMessage': text,
-          'lastMessageTimestamp': FieldValue.serverTimestamp(),
-        });
+        .add(newMessage);
 
     _controller.clear();
   }
@@ -403,14 +372,14 @@ class _ChatScreenState extends State<ChatScreen> {
                         .collection('chatRooms')
                         .doc(widget.chatRoomId)
                         .collection('messages')
-                        .orderBy('timestamp')
+                        .orderBy('timestamp', descending: true)
                         .snapshots(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  final messages = snapshot.data!.docs;
+                  final docs = snapshot.data!.docs;
 
                   return ListView.builder(
                     reverse: true,
@@ -418,21 +387,11 @@ class _ChatScreenState extends State<ChatScreen> {
                       horizontal: 12,
                       vertical: 8,
                     ),
-                    itemCount: messages.length,
+                    itemCount: docs.length,
                     itemBuilder: (context, index) {
-                      final msg =
-                          messages[messages.length - 1 - index].data()
-                              as Map<String, dynamic>;
-
-                      final sender = (msg['sender'] ?? '').toString().trim();
-                      final isMe = sender == widget.userId.trim();
-                      final rawReactions = msg['reactions'] ?? {};
-                      final reactions = Map<String, dynamic>.from(rawReactions);
-
-                      final allEmojis =
-                          reactions.values
-                              .toSet()
-                              .toList(); // show unique emojis only
+                      final msg = docs[index].data() as Map<String, dynamic>;
+                      final sender = msg['sender'] ?? '';
+                      final isMe = sender == widget.userId;
 
                       return Align(
                         alignment:
@@ -444,142 +403,28 @@ class _ChatScreenState extends State<ChatScreen> {
                                   : CrossAxisAlignment.start,
                           children: [
                             GestureDetector(
-                              onLongPress: () {
-                                showModalBottomSheet(
-                                  context: context,
-                                  shape: const RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.vertical(
-                                      top: Radius.circular(20),
-                                    ),
-                                  ),
-                                  builder: (_) {
-                                    final emojis = [
-                                      "😂",
-                                      "😍",
-                                      "😮",
-                                      "😢",
-                                      "👍",
-                                      "❤️",
-                                    ];
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 16,
-                                      ),
-                                      child: Wrap(
-                                        alignment: WrapAlignment.center,
-                                        spacing: 16,
-                                        children:
-                                            emojis.map((emoji) {
-                                              return GestureDetector(
-                                                onTap: () async {
-                                                  Navigator.pop(context);
-
-                                                  final messageId =
-                                                      messages[messages.length -
-                                                              1 -
-                                                              index]
-                                                          .id;
-                                                  final messageRef =
-                                                      FirebaseFirestore.instance
-                                                          .collection(
-                                                            'chatRooms',
-                                                          )
-                                                          .doc(
-                                                            widget.chatRoomId,
-                                                          )
-                                                          .collection(
-                                                            'messages',
-                                                          )
-                                                          .doc(messageId);
-
-                                                  final docSnapshot =
-                                                      await messageRef.get();
-                                                  final existingReactions = Map<
-                                                    String,
-                                                    dynamic
-                                                  >.from(
-                                                    docSnapshot
-                                                            .data()?['reactions'] ??
-                                                        {},
-                                                  );
-                                                  final currentReaction =
-                                                      existingReactions[widget
-                                                          .userId];
-
-                                                  if (currentReaction ==
-                                                      emoji) {
-                                                    // 👎 User already reacted with the same emoji → remove it
-                                                    existingReactions.remove(
-                                                      widget.userId,
-                                                    );
-                                                  } else {
-                                                    // 👍 Add or update user's reaction
-                                                    existingReactions[widget
-                                                            .userId] =
-                                                        emoji;
-                                                  }
-
-                                                  await messageRef.set({
-                                                    'reactions':
-                                                        existingReactions,
-                                                  }, SetOptions(merge: true));
-                                                },
-
-                                                child: Text(
-                                                  emoji,
-                                                  style: const TextStyle(
-                                                    fontSize: 28,
-                                                  ),
-                                                ),
-                                              );
-                                            }).toList(),
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-
+                              onLongPress: () => {},
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 12,
                                   vertical: 8,
                                 ),
                                 margin: const EdgeInsets.symmetric(vertical: 4),
-
                                 decoration: BoxDecoration(
                                   color:
                                       isMe
-                                          ? Color(0xFFD2ECFF)
-                                          : Color(
-                                            0xFFF0F0F0,
-                                          ), // Greenish for you, light gray for others
+                                          ? const Color(0xFFD2ECFF)
+                                          : const Color(0xFFF0F0F0),
                                   borderRadius: BorderRadius.only(
-                                    topLeft: Radius.circular(16),
-                                    topRight: Radius.circular(16),
+                                    topLeft: const Radius.circular(16),
+                                    topRight: const Radius.circular(16),
                                     bottomLeft: Radius.circular(isMe ? 16 : 0),
                                     bottomRight: Radius.circular(isMe ? 0 : 16),
                                   ),
                                 ),
-
                                 child: Text(msg['text'] ?? ''),
                               ),
                             ),
-
-                            // 🧠 Display emojis under the message
-                            if (allEmojis.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Wrap(
-                                  spacing: 6,
-                                  children:
-                                      allEmojis.map((emoji) {
-                                        return Text(
-                                          emoji,
-                                          style: const TextStyle(fontSize: 16),
-                                        );
-                                      }).toList(),
-                                ),
-                              ),
                           ],
                         ),
                       );
@@ -588,7 +433,6 @@ class _ChatScreenState extends State<ChatScreen> {
                 },
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: _buildMessageInput(),
