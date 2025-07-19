@@ -44,11 +44,7 @@ class _SearchingScreenState extends State<SearchingScreen> {
           context,
           MaterialPageRoute(
             builder:
-                (_) => ChatScreen(
-                  chatRoomId: roomId,
-                  userId: widget.userId,
-                  fromFriendsTab: false,
-                ),
+                (_) => ChatScreen(chatRoomId: roomId, userId: widget.userId),
           ),
         );
         return;

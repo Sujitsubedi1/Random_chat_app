@@ -65,12 +65,7 @@ class _StartChatPageState extends State<StartChatPage> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder:
-                (_) => ChatScreen(
-                  chatRoomId: roomId,
-                  userId: userId,
-                  fromFriendsTab: false,
-                ),
+            builder: (_) => ChatScreen(chatRoomId: roomId, userId: userId),
           ),
         );
         matched = true;

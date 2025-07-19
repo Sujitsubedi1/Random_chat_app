@@ -1,43 +1,43 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:logger/logger.dart';
+// import 'package:logger/logger.dart';
 
-final Logger _logger = Logger();
+// final Logger _logger = Logger();
 
 class ChatService {
-  static Future<Map<String, dynamic>?> fetchStrangerAndFriendship({
-    required String chatRoomId,
-    required String currentUserId,
-  }) async {
-    _logger.w("🔄 Fetching stranger and friendship...");
+  // static Future<Map<String, dynamic>?> fetchStrangerAndFriendship({
+  //     required String chatRoomId,
+  //     required String currentUserId,
+  //   }) async {
+  //     _logger.w("🔄 Fetching stranger and friendship...");
 
-    final chatDoc =
-        await FirebaseFirestore.instance
-            .collection('chatRooms')
-            .doc(chatRoomId)
-            .get();
-    final data = chatDoc.data();
-    if (data == null) {
-      _logger.w("❌ Chat room doc is null.");
-      return null;
-    }
+  //     final chatDoc =
+  //         await FirebaseFirestore.instance
+  //             .collection('chatRooms')
+  //             .doc(chatRoomId)
+  //             .get();
+  //     final data = chatDoc.data();
+  //     if (data == null) {
+  //       _logger.w("❌ Chat room doc is null.");
+  //       return null;
+  //     }
 
-    final users = List<String>.from(data['users'] ?? []);
-    final stranger = users.firstWhere((id) => id != currentUserId);
-    _logger.w("👤 Stranger: $stranger");
+  //     final users = List<String>.from(data['users'] ?? []);
+  //     final stranger = users.firstWhere((id) => id != currentUserId);
+  //     _logger.w("👤 Stranger: $stranger");
 
-    final doc =
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(currentUserId)
-            .collection('friends')
-            .doc(stranger)
-            .get();
+  //     final doc =
+  //         await FirebaseFirestore.instance
+  //             .collection('users')
+  //             .doc(currentUserId)
+  //             .collection('friends')
+  //             .doc(stranger)
+  //             .get();
 
-    final isFriend = doc.exists;
-    _logger.w("✅ isFriend: $isFriend");
+  //     final isFriend = doc.exists;
+  //     _logger.w("✅ isFriend: $isFriend");
 
-    return {'stranger': stranger, 'isFriend': isFriend, 'chatRoomData': data};
-  }
+  //     return {'stranger': stranger, 'isFriend': isFriend, 'chatRoomData': data};
+  //   }
 
   // 👇 ADD THIS BELOW INSIDE THE ChatService CLASS
   static Future<void> scheduleRoomCleanup(String roomId) async {

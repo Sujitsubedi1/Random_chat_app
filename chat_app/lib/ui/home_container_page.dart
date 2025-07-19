@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'start_chat_page.dart';
-import 'friends_page.dart'; // import your FriendsPage
+// import 'friends_page.dart'; // import your FriendsPage
 import '../services/temp_user_manager.dart';
 import 'settings_page.dart';
 import '../firebase//firestore_service.dart';
 import 'package:logger/logger.dart';
-import 'shop_page.dart';
+// import 'shop_page.dart';
 
 final FirestoreService _firestoreService = FirestoreService();
 final logger = Logger();
@@ -40,8 +40,8 @@ class _HomeContainerPageState extends State<HomeContainerPage> {
       // Build pages once username is loaded
       _pages = [
         const StartChatPage(),
-        FriendsPage(userId: name),
-        ShopPage(), // Shop
+        // FriendsPage(userId: name),
+        // ShopPage(), // Shop
         SettingsPage(), // Settings
       ];
     });
@@ -77,11 +77,6 @@ class _HomeContainerPageState extends State<HomeContainerPage> {
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Find'),
-          BottomNavigationBarItem(icon: Icon(Icons.group), label: 'Friends'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Shop',
-          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
             label: 'Settings',

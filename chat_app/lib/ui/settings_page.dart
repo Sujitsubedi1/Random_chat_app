@@ -246,12 +246,12 @@ class _SettingsPageState extends State<SettingsPage> {
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {},
           ),
-          SwitchListTile(
-            title: const Text("Allow Friend Requests"),
-            value: true,
-            onChanged: (val) {},
-          ),
 
+          // SwitchListTile(
+          //   title: const Text("Allow Friend Requests"),
+          //   value: true,
+          //   onChanged: (val) {},
+          // ),
           const SizedBox(height: 24),
 
           // Feedback & Support
