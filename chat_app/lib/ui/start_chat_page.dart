@@ -24,6 +24,22 @@ class _StartChatPageState extends State<StartChatPage> {
     _initializeFakeOnlineCount();
   }
 
+  void _startBotSession(String userId) {
+    final botRoomId = 'bot_${DateTime.now().millisecondsSinceEpoch}';
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => ChatScreen(
+              chatRoomId: botRoomId,
+              userId: userId,
+              isBot: true, // we'll handle this in ChatScreen next
+            ),
+      ),
+    );
+  }
+
   // ✅ Step 2: Initialize a fake but consistent online count per session
   void _initializeFakeOnlineCount() {
     final now = DateTime.now();
@@ -89,9 +105,7 @@ class _StartChatPageState extends State<StartChatPage> {
       if (!mounted) return;
       setState(() => _isSearching = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("No match found. Try again.")),
-      );
+      _startBotSession(userId);
     }
   }
 

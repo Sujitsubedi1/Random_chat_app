@@ -15,8 +15,14 @@ final Logger _logger = Logger();
 class ChatScreen extends StatefulWidget {
   final String chatRoomId;
   final String userId;
+  final bool isBot;
 
-  const ChatScreen({super.key, required this.chatRoomId, required this.userId});
+  const ChatScreen({
+    super.key,
+    required this.chatRoomId,
+    required this.userId,
+    this.isBot = false,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -26,12 +32,49 @@ class _ChatScreenState extends State<ChatScreen> {
   final FirestoreService firestoreService = FirestoreService();
   String? _strangerId;
   late TextEditingController _controller;
+  List<Map<String, String>> _botMessages = [];
+  bool _botStarted = false;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController();
     _identifyStranger();
+    if (widget.isBot) {
+      _startBotConversation();
+    }
+  }
+
+  void _startBotConversation() async {
+    const fakeBotReplies = [
+      "Hi there 👋",
+      "How are you doing?",
+      "Where are you from?",
+      "How old are you?",
+      "Nice! I'm from the internet.",
+      "It was fun chatting. Bye 👋",
+    ];
+
+    _botStarted = true;
+
+    for (int i = 0; i < fakeBotReplies.length; i++) {
+      await Future.delayed(Duration(seconds: i == 0 ? 2 : 4));
+      if (!mounted || !_botStarted) break;
+
+      setState(() {
+        _botMessages.add({'text': fakeBotReplies[i], 'sender': 'bot'});
+      });
+    }
+
+    // Optional auto-leave after bot finishes
+    await Future.delayed(const Duration(seconds: 4));
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const HomeContainerPage(initialIndex: 0),
+      ),
+    );
   }
 
   void _identifyStranger() async {
@@ -366,73 +409,97 @@ class _ChatScreenState extends State<ChatScreen> {
         body: Column(
           children: [
             Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream:
-                    FirebaseFirestore.instance
-                        .collection('chatRooms')
-                        .doc(widget.chatRoomId)
-                        .collection('messages')
-                        .orderBy('timestamp', descending: true)
-                        .snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+              child:
+                  widget.isBot
+                      ? ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _botMessages.length,
+                        itemBuilder: (context, index) {
+                          final msg = _botMessages[index];
+                          final isMe = msg['sender'] == widget.userId;
 
-                  final docs = snapshot.data!.docs;
-
-                  return ListView.builder(
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    itemCount: docs.length,
-                    itemBuilder: (context, index) {
-                      final msg = docs[index].data() as Map<String, dynamic>;
-                      final sender = msg['sender'] ?? '';
-                      final isMe = sender == widget.userId;
-
-                      return Align(
-                        alignment:
-                            isMe ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Column(
-                          crossAxisAlignment:
-                              isMe
-                                  ? CrossAxisAlignment.end
-                                  : CrossAxisAlignment.start,
-                          children: [
-                            GestureDetector(
-                              onLongPress: () => {},
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                margin: const EdgeInsets.symmetric(vertical: 4),
-                                decoration: BoxDecoration(
-                                  color:
-                                      isMe
-                                          ? const Color(0xFFD2ECFF)
-                                          : const Color(0xFFF0F0F0),
-                                  borderRadius: BorderRadius.only(
-                                    topLeft: const Radius.circular(16),
-                                    topRight: const Radius.circular(16),
-                                    bottomLeft: Radius.circular(isMe ? 16 : 0),
-                                    bottomRight: Radius.circular(isMe ? 0 : 16),
-                                  ),
-                                ),
-                                child: Text(msg['text'] ?? ''),
+                          return Align(
+                            alignment:
+                                isMe
+                                    ? Alignment.centerRight
+                                    : Alignment.centerLeft,
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
                               ),
+                              decoration: BoxDecoration(
+                                color:
+                                    isMe
+                                        ? const Color(0xFFD2ECFF)
+                                        : const Color(0xFFF0F0F0),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(msg['text'] ?? ''),
                             ),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
+                          );
+                        },
+                      )
+                      : StreamBuilder<QuerySnapshot>(
+                        stream:
+                            FirebaseFirestore.instance
+                                .collection('chatRooms')
+                                .doc(widget.chatRoomId)
+                                .collection('messages')
+                                .orderBy('timestamp', descending: true)
+                                .snapshots(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+
+                          final docs = snapshot.data!.docs;
+
+                          return ListView.builder(
+                            reverse: true,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            itemCount: docs.length,
+                            itemBuilder: (context, index) {
+                              final msg =
+                                  docs[index].data() as Map<String, dynamic>;
+                              final sender = msg['sender'] ?? '';
+                              final isMe = sender == widget.userId;
+
+                              return Align(
+                                alignment:
+                                    isMe
+                                        ? Alignment.centerRight
+                                        : Alignment.centerLeft,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  margin: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        isMe
+                                            ? const Color(0xFFD2ECFF)
+                                            : const Color(0xFFF0F0F0),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(msg['text'] ?? ''),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
             ),
+
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: _buildMessageInput(),
@@ -445,6 +512,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isBot) {
+      return _buildChatScaffold();
+    }
+
     return StreamBuilder<DocumentSnapshot>(
       stream:
           FirebaseFirestore.instance
@@ -457,16 +528,21 @@ class _ChatScreenState extends State<ChatScreen> {
         }
 
         final data = snapshot.data!.data() as Map<String, dynamic>?;
+
         if (data == null) {
-          return const Center(child: Text("Room data missing"));
+          return const Center(
+            child: Text(
+              "Room data missing",
+              style: TextStyle(color: Colors.red, fontSize: 24),
+            ),
+          );
         }
 
         final isActive = data['isActive'] ?? false;
         final leaver = data['leaver'] ?? '';
-
         final blockerId = data['blocker'];
         final iWasBlocked = blockerId != null && blockerId != widget.userId;
-        // 🔒 Immediately stop showing messages if either user blocked
+
         if (iWasBlocked) {
           return _buildIWasBlockedScreen();
         } else if (blockerId == widget.userId) {
@@ -482,7 +558,6 @@ class _ChatScreenState extends State<ChatScreen> {
         }
 
         final hasLeft = leaver != '' && leaver != widget.userId;
-
         if (!isActive || hasLeft) {
           _logger.w("🚫 Stranger left — showing requeue UI");
           return _buildStrangerLeftScreen();
