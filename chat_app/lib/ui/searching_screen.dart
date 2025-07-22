@@ -56,9 +56,9 @@ class _SearchingScreenState extends State<SearchingScreen> {
     if (!mounted || _isCancelling) return;
 
     Navigator.pop(context); // fallback
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("No match found. Try again shortly.")),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("No match found.")));
   }
 
   Future<void> _cancelSearch() async {

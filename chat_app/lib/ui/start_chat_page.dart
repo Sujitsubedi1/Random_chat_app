@@ -90,7 +90,7 @@ class _StartChatPageState extends State<StartChatPage> {
       setState(() => _isSearching = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("No match found. Try again shortly.")),
+        const SnackBar(content: Text("No match found. Try again.")),
       );
     }
   }
