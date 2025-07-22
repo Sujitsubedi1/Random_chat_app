@@ -107,15 +107,27 @@ class _ChatScreenState extends State<ChatScreen> {
     // Mark the chat as inactive and set the leaver
     await chatRef.update({'isActive': false, 'leaver': widget.userId});
 
-    // Delete all messages in the subcollection
+    // Delete all messages
     final messagesRef = chatRef.collection('messages');
     final messagesSnapshot = await messagesRef.get();
-
     for (final doc in messagesSnapshot.docs) {
       await doc.reference.delete();
     }
 
-    // Navigate user back to home
+    // Wait a moment to ensure all messages are deleted
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // Delay full chatRoom deletion by 30 seconds (for User B)
+    Future.delayed(const Duration(seconds: 30), () async {
+      final updatedChatDoc = await chatRef.get();
+      if (updatedChatDoc.exists) {
+        final data = updatedChatDoc.data();
+        if (data?['isActive'] == false) {
+          await chatRef.delete();
+        }
+      }
+    });
+
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
