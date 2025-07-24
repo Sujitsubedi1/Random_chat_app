@@ -17,7 +17,16 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _launchPrivacyPolicy() async {
-    final Uri url = Uri.parse('https://random-chat-3e819.web.app/index.html');
+    final Uri url = Uri.parse('https://random-chat-3e819.web.app/privacy');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      throw 'Could not launch $url';
+    }
+  }
+
+  void _launchTermsOfUse() async {
+    final Uri url = Uri.parse('https://random-chat-3e819.web.app/terms');
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
@@ -61,8 +70,9 @@ class _SettingsPageState extends State<SettingsPage> {
           ListTile(
             title: const Text("Terms of Use"),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {},
+            onTap: _launchTermsOfUse,
           ),
+
           ListTile(
             title: const Text("Child Safety Policy"),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),

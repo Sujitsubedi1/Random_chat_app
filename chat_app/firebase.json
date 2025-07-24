@@ -22,12 +22,18 @@
       }
     }
   },
+
   "hosting": {
-    "public": "privacy_policy",
+    "public": "public_docs",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
+    ],
+    "rewrites": [
+      { "source": "/privacy", "destination": "/privacy.html" },
+      { "source": "/terms", "destination": "/terms.html" }
     ]
   }
 }
+
