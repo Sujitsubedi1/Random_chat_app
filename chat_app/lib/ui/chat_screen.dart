@@ -137,6 +137,37 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  void _handleNextUser() async {
+    final chatRef = FirebaseFirestore.instance
+        .collection('chatRooms')
+        .doc(widget.chatRoomId);
+
+    // Mark chat as inactive and set leaver
+    await chatRef.update({'isActive': false, 'leaver': widget.userId});
+
+    // Delete messages
+    final messagesRef = chatRef.collection('messages');
+    final messagesSnapshot = await messagesRef.get();
+    for (final doc in messagesSnapshot.docs) {
+      await doc.reference.delete();
+    }
+
+    // Delay full room deletion (for the other user to see "Stranger left")
+    Future.delayed(const Duration(seconds: 30), () async {
+      final updated = await chatRef.get();
+      if (updated.exists && updated.data()?['isActive'] == false) {
+        await chatRef.delete();
+      }
+    });
+
+    // Navigate to searching screen to find new user (or fallback to bot)
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => SearchingScreen(userId: widget.userId)),
+    );
+  }
+
   void _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
@@ -293,6 +324,11 @@ class _ChatScreenState extends State<ChatScreen> {
             onPressed: _handleExitChat,
           ),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.skip_next),
+              tooltip: 'Next',
+              onPressed: _handleNextUser, // We'll define this in Step 2
+            ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
               shape: RoundedRectangleBorder(

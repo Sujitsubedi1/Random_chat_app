@@ -55,10 +55,18 @@ class _SearchingScreenState extends State<SearchingScreen> {
 
     if (!mounted || _isCancelling) return;
 
-    Navigator.pop(context); // fallback
-    ScaffoldMessenger.of(
+    // ❌ No real match found — fallback to bot
+    Navigator.pushReplacement(
       context,
-    ).showSnackBar(const SnackBar(content: Text("No match found.")));
+      MaterialPageRoute(
+        builder:
+            (_) => ChatScreen(
+              chatRoomId: '', // No Firestore chatRoom needed for bot
+              userId: widget.userId,
+              isBot: true,
+            ),
+      ),
+    );
   }
 
   Future<void> _cancelSearch() async {
