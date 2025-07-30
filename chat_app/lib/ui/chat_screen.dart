@@ -1,14 +1,10 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../firebase/firestore_service.dart';
 import 'home_container_page.dart';
 import 'searching_screen.dart';
 import 'package:logger/logger.dart';
-// import 'package:lottie/lottie.dart';
-// import '../services/chat_services.dart';
-// import '../services/temp_user_manager.dart';
+import '../services/bot_responder.dart';
 
 final Logger _logger = Logger();
 
@@ -33,48 +29,12 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _strangerId;
   late TextEditingController _controller;
   List<Map<String, String>> _botMessages = [];
-  bool _botStarted = false;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController();
     _identifyStranger();
-    if (widget.isBot) {
-      _startBotConversation();
-    }
-  }
-
-  void _startBotConversation() async {
-    const fakeBotReplies = [
-      "Hi there 👋",
-      "How are you doing?",
-      "Where are you from?",
-      "How old are you?",
-      "Nice! I'm from the internet.",
-      "It was fun chatting. Bye 👋",
-    ];
-
-    _botStarted = true;
-
-    for (int i = 0; i < fakeBotReplies.length; i++) {
-      await Future.delayed(Duration(seconds: i == 0 ? 2 : 4));
-      if (!mounted || !_botStarted) break;
-
-      setState(() {
-        _botMessages.add({'text': fakeBotReplies[i], 'sender': 'bot'});
-      });
-    }
-
-    // Optional auto-leave after bot finishes
-    await Future.delayed(const Duration(seconds: 4));
-    if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const HomeContainerPage(initialIndex: 0),
-      ),
-    );
   }
 
   void _identifyStranger() async {
@@ -172,6 +132,27 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    setState(() {
+      _botMessages.add({'text': text, 'sender': widget.userId});
+    });
+
+    _controller.clear();
+
+    // 🔁 If bot mode, respond directly
+    if (widget.isBot) {
+      final reply = BotResponder.getReply(text);
+      await Future.delayed(
+        const Duration(milliseconds: 800),
+      ); // Fake typing delay
+
+      setState(() {
+        _botMessages.add({'text': reply, 'sender': 'bot'});
+      });
+
+      return;
+    }
+
+    // 🔁 Normal user-to-user message logic
     final newMessage = {
       'text': text,
       'sender': widget.userId,
@@ -183,8 +164,6 @@ class _ChatScreenState extends State<ChatScreen> {
         .doc(widget.chatRoomId)
         .collection('messages')
         .add(newMessage);
-
-    _controller.clear();
   }
 
   Widget _buildMessageInput() {
