@@ -353,16 +353,6 @@ class _ChatScreenState extends State<ChatScreen> {
                       ],
                     ),
                   ),
-                  PopupMenuItem<String>(
-                    value: 'block',
-                    child: Row(
-                      children: const [
-                        Icon(Icons.block, color: Colors.grey),
-                        SizedBox(width: 10),
-                        Text("Block User"),
-                      ],
-                    ),
-                  ),
                 ],
             onSelected: (value) {
               if (value == 'report') {
@@ -389,59 +379,6 @@ class _ChatScreenState extends State<ChatScreen> {
                               );
                             },
                             child: const Text("Report"),
-                          ),
-                        ],
-                      ),
-                );
-              } else if (value == 'block') {
-                showDialog(
-                  context: context,
-                  builder:
-                      (_) => AlertDialog(
-                        title: const Text("Block User"),
-                        content: const Text(
-                          "You will no longer be matched with this user.",
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text("Cancel"),
-                          ),
-                          ElevatedButton(
-                            onPressed: () async {
-                              Navigator.pop(context);
-                              final currentUserId = widget.userId;
-                              final blockedUserId = _strangerId;
-                              if (blockedUserId != null) {
-                                await FirebaseFirestore.instance
-                                    .collection('users')
-                                    .doc(currentUserId)
-                                    .collection('blockedUsers')
-                                    .doc(blockedUserId)
-                                    .set({
-                                      'blockedAt': FieldValue.serverTimestamp(),
-                                    });
-                                await FirebaseFirestore.instance
-                                    .collection('chatRooms')
-                                    .doc(widget.chatRoomId)
-                                    .update({
-                                      'isActive': false,
-                                      'leaver': currentUserId,
-                                      'blocker': currentUserId,
-                                    });
-                                if (!mounted) return;
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (_) => const HomeContainerPage(
-                                          initialIndex: 0,
-                                        ),
-                                  ),
-                                );
-                              }
-                            },
-                            child: const Text("Block"),
                           ),
                         ],
                       ),
