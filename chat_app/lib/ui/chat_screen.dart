@@ -281,281 +281,283 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildChatScaffold() {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) _handleExitChat();
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Row(
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: Colors.blueGrey,
-                child: Text(
-                  (_strangerId?.isNotEmpty ?? false)
-                      ? _strangerId![0].toUpperCase()
-                      : '?',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
+    final scaffold = Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.blueGrey,
+              child: Text(
+                (_strangerId?.isNotEmpty ?? false)
+                    ? _strangerId![0].toUpperCase()
+                    : '?',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  _strangerId ?? "Unknown",
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 18,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: _handleExitChat,
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.skip_next),
-              tooltip: 'Next',
-              onPressed: _handleNextUser, // We'll define this in Step 2
             ),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                _strangerId ?? "Unknown",
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 18,
+                  letterSpacing: 0.3,
+                ),
               ),
-              color: Colors.white,
-              elevation: 6,
-              itemBuilder:
-                  (context) => [
-                    PopupMenuItem<String>(
-                      value: 'report',
-                      child: Row(
-                        children: const [
-                          Icon(Icons.flag, color: Colors.redAccent),
-                          SizedBox(width: 10),
-                          Text("Report User"),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'block',
-                      child: Row(
-                        children: const [
-                          Icon(Icons.block, color: Colors.grey),
-                          SizedBox(width: 10),
-                          Text("Block User"),
-                        ],
-                      ),
-                    ),
-                  ],
-              onSelected: (value) {
-                if (value == 'report') {
-                  showDialog(
-                    context: context,
-                    builder:
-                        (_) => AlertDialog(
-                          title: const Text("Report User"),
-                          content: const Text(
-                            "Are you sure you want to report this user?",
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text("Cancel"),
-                            ),
-                            ElevatedButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text("User reported (UI only)."),
-                                  ),
-                                );
-                              },
-                              child: const Text("Report"),
-                            ),
-                          ],
-                        ),
-                  );
-                } else if (value == 'block') {
-                  showDialog(
-                    context: context,
-                    builder:
-                        (_) => AlertDialog(
-                          title: const Text("Block User"),
-                          content: const Text(
-                            "You will no longer be matched with this user.",
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text("Cancel"),
-                            ),
-                            ElevatedButton(
-                              onPressed: () async {
-                                Navigator.pop(context); // close dialog first
-
-                                final currentUserId = widget.userId;
-                                final blockedUserId = _strangerId;
-
-                                if (blockedUserId != null) {
-                                  await FirebaseFirestore.instance
-                                      .collection('users')
-                                      .doc(currentUserId)
-                                      .collection('blockedUsers')
-                                      .doc(blockedUserId)
-                                      .set({
-                                        'blockedAt':
-                                            FieldValue.serverTimestamp(),
-                                      });
-
-                                  // Mark chat as inactive + log who blocked
-                                  await FirebaseFirestore.instance
-                                      .collection('chatRooms')
-                                      .doc(widget.chatRoomId)
-                                      .update({
-                                        'isActive': false,
-                                        'leaver': currentUserId,
-                                        'blocker': currentUserId,
-                                      });
-
-                                  if (!mounted) return;
-
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (_) => const HomeContainerPage(
-                                            initialIndex: 0,
-                                          ),
-                                    ),
-                                  );
-                                }
-                              },
-                              child: const Text("Block"),
-                            ),
-                          ],
-                        ),
-                  );
-                }
-              },
             ),
           ],
         ),
-
-        body: Column(
-          children: [
-            Expanded(
-              child:
-                  widget.isBot
-                      ? ListView.builder(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: _botMessages.length,
-                        itemBuilder: (context, index) {
-                          final msg = _botMessages[index];
-                          final isMe = msg['sender'] == widget.userId;
-
-                          return Align(
-                            alignment:
-                                isMe
-                                    ? Alignment.centerRight
-                                    : Alignment.centerLeft,
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color:
-                                    isMe
-                                        ? const Color(0xFFD2ECFF)
-                                        : const Color(0xFFF0F0F0),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(msg['text'] ?? ''),
-                            ),
-                          );
-                        },
-                      )
-                      : StreamBuilder<QuerySnapshot>(
-                        stream:
-                            FirebaseFirestore.instance
-                                .collection('chatRooms')
-                                .doc(widget.chatRoomId)
-                                .collection('messages')
-                                .orderBy('timestamp', descending: true)
-                                .snapshots(),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          }
-
-                          final docs = snapshot.data!.docs;
-
-                          return ListView.builder(
-                            reverse: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (widget.isBot) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const HomeContainerPage(initialIndex: 0),
+                ),
+              );
+            } else {
+              _handleExitChat();
+            }
+          },
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.skip_next),
+            tooltip: 'Next',
+            onPressed: _handleNextUser,
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            color: Colors.white,
+            elevation: 6,
+            itemBuilder:
+                (context) => [
+                  PopupMenuItem<String>(
+                    value: 'report',
+                    child: Row(
+                      children: const [
+                        Icon(Icons.flag, color: Colors.redAccent),
+                        SizedBox(width: 10),
+                        Text("Report User"),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'block',
+                    child: Row(
+                      children: const [
+                        Icon(Icons.block, color: Colors.grey),
+                        SizedBox(width: 10),
+                        Text("Block User"),
+                      ],
+                    ),
+                  ),
+                ],
+            onSelected: (value) {
+              if (value == 'report') {
+                showDialog(
+                  context: context,
+                  builder:
+                      (_) => AlertDialog(
+                        title: const Text("Report User"),
+                        content: const Text(
+                          "Are you sure you want to report this user?",
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text("Cancel"),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("User reported (UI only)."),
+                                ),
+                              );
+                            },
+                            child: const Text("Report"),
+                          ),
+                        ],
+                      ),
+                );
+              } else if (value == 'block') {
+                showDialog(
+                  context: context,
+                  builder:
+                      (_) => AlertDialog(
+                        title: const Text("Block User"),
+                        content: const Text(
+                          "You will no longer be matched with this user.",
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text("Cancel"),
+                          ),
+                          ElevatedButton(
+                            onPressed: () async {
+                              Navigator.pop(context);
+                              final currentUserId = widget.userId;
+                              final blockedUserId = _strangerId;
+                              if (blockedUserId != null) {
+                                await FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(currentUserId)
+                                    .collection('blockedUsers')
+                                    .doc(blockedUserId)
+                                    .set({
+                                      'blockedAt': FieldValue.serverTimestamp(),
+                                    });
+                                await FirebaseFirestore.instance
+                                    .collection('chatRooms')
+                                    .doc(widget.chatRoomId)
+                                    .update({
+                                      'isActive': false,
+                                      'leaver': currentUserId,
+                                      'blocker': currentUserId,
+                                    });
+                                if (!mounted) return;
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (_) => const HomeContainerPage(
+                                          initialIndex: 0,
+                                        ),
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Text("Block"),
+                          ),
+                        ],
+                      ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child:
+                widget.isBot
+                    ? ListView.builder(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _botMessages.length,
+                      itemBuilder: (context, index) {
+                        final msg = _botMessages[index];
+                        final isMe = msg['sender'] == widget.userId;
+                        return Align(
+                          alignment:
+                              isMe
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 8,
                             ),
-                            itemCount: docs.length,
-                            itemBuilder: (context, index) {
-                              final msg =
-                                  docs[index].data() as Map<String, dynamic>;
-                              final sender = msg['sender'] ?? '';
-                              final isMe = sender == widget.userId;
-
-                              return Align(
-                                alignment:
-                                    isMe
-                                        ? Alignment.centerRight
-                                        : Alignment.centerLeft,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  margin: const EdgeInsets.symmetric(
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        isMe
-                                            ? const Color(0xFFD2ECFF)
-                                            : const Color(0xFFF0F0F0),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(msg['text'] ?? ''),
-                                ),
-                              );
-                            },
+                            decoration: BoxDecoration(
+                              color:
+                                  isMe
+                                      ? const Color(0xFFD2ECFF)
+                                      : const Color(0xFFF0F0F0),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(msg['text'] ?? ''),
+                          ),
+                        );
+                      },
+                    )
+                    : StreamBuilder<QuerySnapshot>(
+                      stream:
+                          FirebaseFirestore.instance
+                              .collection('chatRooms')
+                              .doc(widget.chatRoomId)
+                              .collection('messages')
+                              .orderBy('timestamp', descending: true)
+                              .snapshots(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
                           );
-                        },
-                      ),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: _buildMessageInput(),
-            ),
-          ],
-        ),
+                        }
+                        final docs = snapshot.data!.docs;
+                        return ListView.builder(
+                          reverse: true,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          itemCount: docs.length,
+                          itemBuilder: (context, index) {
+                            final msg =
+                                docs[index].data() as Map<String, dynamic>;
+                            final sender = msg['sender'] ?? '';
+                            final isMe = sender == widget.userId;
+                            return Align(
+                              alignment:
+                                  isMe
+                                      ? Alignment.centerRight
+                                      : Alignment.centerLeft,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                decoration: BoxDecoration(
+                                  color:
+                                      isMe
+                                          ? const Color(0xFFD2ECFF)
+                                          : const Color(0xFFF0F0F0),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(msg['text'] ?? ''),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: _buildMessageInput(),
+          ),
+        ],
       ),
     );
+
+    // Wrap only if it's a real user chat
+    if (!widget.isBot) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) _handleExitChat();
+        },
+        child: scaffold,
+      );
+    } else {
+      return scaffold;
+    }
   }
 
   @override
