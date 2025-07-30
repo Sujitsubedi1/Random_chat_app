@@ -5,6 +5,7 @@ import 'home_container_page.dart';
 import 'searching_screen.dart';
 import 'package:logger/logger.dart';
 import '../services/bot_responder.dart';
+import '../constants/banned_keywords.dart';
 
 final Logger _logger = Logger();
 
@@ -132,27 +133,47 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    final lower = text.toLowerCase();
+    final containsBanned = bannedKeywords.any((word) => lower.contains(word));
+
+    if (containsBanned) {
+      // ❌ Respond politely
+      setState(() {
+        _botMessages.add({
+          'text':
+              "❌ Please keep the conversation respectful. Inappropriate behavior will lead to removal.",
+          'sender': 'system',
+        });
+      });
+
+      // 🚨 Log violation to Firestore
+      await FirebaseFirestore.instance.collection('bannedUsers').add({
+        'userId': widget.userId,
+        'chatRoomId': widget.chatRoomId,
+        'message': text,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      return;
+    }
+
+    // ✅ Proceed with normal sending logic
     setState(() {
       _botMessages.add({'text': text, 'sender': widget.userId});
     });
 
     _controller.clear();
 
-    // 🔁 If bot mode, respond directly
     if (widget.isBot) {
       final reply = BotResponder.getReply(text);
-      await Future.delayed(
-        const Duration(milliseconds: 800),
-      ); // Fake typing delay
-
+      await Future.delayed(const Duration(milliseconds: 800));
       setState(() {
         _botMessages.add({'text': reply, 'sender': 'bot'});
       });
-
       return;
     }
 
-    // 🔁 Normal user-to-user message logic
+    // Store in Firestore if real user chat
     final newMessage = {
       'text': text,
       'sender': widget.userId,
