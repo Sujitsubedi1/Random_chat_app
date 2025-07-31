@@ -20,7 +20,7 @@ const List<String> bannedKeywords = [
   'slut',
   'whore',
   'chakka',
-  'rand*',
+  'randi',
   'gandu',
   'madarchod',
   'bhosdi',

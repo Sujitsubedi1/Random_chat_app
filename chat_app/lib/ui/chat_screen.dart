@@ -31,7 +31,9 @@ class _ChatScreenState extends State<ChatScreen> {
   final FirestoreService firestoreService = FirestoreService();
   String? _strangerId;
   late TextEditingController _controller;
-  List<Map<String, String>> _botMessages = [];
+  final List<Map<String, String>> _botMessages = [];
+  final List<Map<String, String>> _localSystemMessages = [];
+
   Timer? _botReplyTimer;
   String? _lastUserMessage;
 
@@ -153,14 +155,28 @@ class _ChatScreenState extends State<ChatScreen> {
     final containsBanned = bannedKeywords.any((word) => lower.contains(word));
 
     if (containsBanned) {
-      setState(() {
-        _botMessages.add({
-          'text':
-              "❌ Please keep the conversation respectful. Inappropriate behavior will lead to removal.",
-          'sender': 'system',
+      // Show warning message only to sender
+      if (widget.isBot) {
+        // Bot mode – add to local bot message list
+        setState(() {
+          _botMessages.add({
+            'text':
+                "❌ Please keep the conversation respectful. Inappropriate behavior will lead to removal.",
+            'sender': 'system',
+          });
         });
-      });
+      } else {
+        // Real user – add system message locally only for sender
+        setState(() {
+          _localSystemMessages.add({
+            'text':
+                "❌ Please keep the conversation respectful. Inappropriate behavior will lead to removal.",
+            'sender': 'system',
+          });
+        });
+      }
 
+      // Log offense in Firestore
       await FirebaseFirestore.instance.collection('bannedUsers').add({
         'userId': widget.userId,
         'chatRoomId': widget.chatRoomId,
@@ -171,23 +187,20 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    setState(() {
-      _botMessages.add({'text': text, 'sender': widget.userId});
-    });
-
+    // Safe message – proceed
     _controller.clear();
 
     if (widget.isBot) {
-      _lastUserMessage = text;
+      setState(() {
+        _botMessages.add({'text': text, 'sender': widget.userId});
+      });
 
-      // Cancel any previously scheduled reply
+      _lastUserMessage = text;
       _botReplyTimer?.cancel();
 
-      // Debounce + human delay (3 to 10 seconds)
       final delay = Duration(
         seconds: 3 + (DateTime.now().millisecondsSinceEpoch % 8),
       );
-
       _botReplyTimer = Timer(delay, () {
         final reply = BotResponder.getReply(_lastUserMessage!);
         setState(() {
@@ -198,7 +211,7 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    // Real user chat
+    // Send to Firestore for real user chat
     final newMessage = {
       'text': text,
       'sender': widget.userId,
@@ -494,22 +507,55 @@ class _ChatScreenState extends State<ChatScreen> {
                             child: CircularProgressIndicator(),
                           );
                         }
-                        final docs = snapshot.data!.docs;
+
+                        final firestoreMessages =
+                            snapshot.data!.docs
+                                .map(
+                                  (doc) => {
+                                    'text': doc['text'],
+                                    'sender': doc['sender'],
+                                    'timestamp': doc['timestamp'],
+                                  },
+                                )
+                                .toList();
+
+                        final systemMessages = _localSystemMessages.map(
+                          (msg) => {
+                            'text': msg['text'],
+                            'sender': 'system',
+                            'timestamp': Timestamp.now(),
+                          },
+                        );
+
+                        final allMessages = [
+                          ...firestoreMessages,
+                          ...systemMessages,
+                        ];
+
+                        allMessages.sort((a, b) {
+                          final at = a['timestamp'] as Timestamp;
+                          final bt = b['timestamp'] as Timestamp;
+                          return bt.compareTo(at);
+                        });
+
                         return ListView.builder(
                           reverse: true,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 8,
                           ),
-                          itemCount: docs.length,
+                          itemCount: allMessages.length,
                           itemBuilder: (context, index) {
-                            final msg =
-                                docs[index].data() as Map<String, dynamic>;
-                            final sender = msg['sender'] ?? '';
+                            final msg = allMessages[index];
+                            final sender = msg['sender'];
                             final isMe = sender == widget.userId;
+                            final isSystem = sender == 'system';
+
                             return Align(
                               alignment:
-                                  isMe
+                                  isSystem
+                                      ? Alignment.center
+                                      : isMe
                                       ? Alignment.centerRight
                                       : Alignment.centerLeft,
                               child: Container(
@@ -520,12 +566,26 @@ class _ChatScreenState extends State<ChatScreen> {
                                 margin: const EdgeInsets.symmetric(vertical: 4),
                                 decoration: BoxDecoration(
                                   color:
-                                      isMe
+                                      isSystem
+                                          ? Colors.red.shade50
+                                          : isMe
                                           ? const Color(0xFFD2ECFF)
                                           : const Color(0xFFF0F0F0),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: Text(msg['text'] ?? ''),
+                                child: Text(
+                                  (msg['text'] as String?) ?? '',
+                                  style: TextStyle(
+                                    color:
+                                        isSystem
+                                            ? Colors.red.shade800
+                                            : Colors.black87,
+                                    fontStyle:
+                                        isSystem
+                                            ? FontStyle.italic
+                                            : FontStyle.normal,
+                                  ),
+                                ),
                               ),
                             );
                           },
