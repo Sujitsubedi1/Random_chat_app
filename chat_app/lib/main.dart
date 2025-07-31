@@ -3,10 +3,16 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 // import 'ui/start_chat_page.dart';
 import 'ui/home_container_page.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // ✅ Initialize AdMob
+  await MobileAds.instance.initialize();
+
   runApp(const MyApp());
 }
 
