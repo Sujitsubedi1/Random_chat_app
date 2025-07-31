@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../firebase/firestore_service.dart';
-import '../services/temp_user_manager.dart';
+import '../services/user_id_storage.dart';
 import 'chat_screen.dart';
 import 'package:lottie/lottie.dart';
 
@@ -60,7 +60,7 @@ class _StartChatPageState extends State<StartChatPage> {
   Future<void> _startChat() async {
     setState(() => _isSearching = true);
 
-    final userId = await TempUserManager.getOrCreateTempUsername();
+    final userId = await UserIdStorage.getOrCreateTempUserId();
     await FirestoreService().joinWaitingQueue(userId, userId);
     await FirestoreService().matchUsers();
 
@@ -228,7 +228,7 @@ class _StartChatPageState extends State<StartChatPage> {
                           ),
                           onPressed: () async {
                             final userId =
-                                await TempUserManager.getOrCreateTempUsername();
+                                await UserIdStorage.getOrCreateTempUserId();
 
                             try {
                               await FirebaseFirestore.instance

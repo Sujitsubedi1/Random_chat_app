@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'start_chat_page.dart';
 // import 'friends_page.dart'; // import your FriendsPage
-import '../services/temp_user_manager.dart';
+import '../services/user_id_storage.dart';
 import 'settings_page.dart';
 import '../firebase//firestore_service.dart';
 import 'package:logger/logger.dart';
@@ -33,7 +33,8 @@ class _HomeContainerPageState extends State<HomeContainerPage> {
   }
 
   Future<void> _loadUsername() async {
-    final name = await TempUserManager.getOrCreateTempUsername();
+    final name = await UserIdStorage.getOrCreateTempUserId();
+
     setState(() {
       _tempUserName = name;
 

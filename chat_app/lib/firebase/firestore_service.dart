@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logger/logger.dart';
-import 'package:chat_app/constants/usernames.dart'; // ✅
 
 class FirestoreService {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
@@ -112,37 +111,6 @@ class FirestoreService {
     } catch (e) {
       logger.w("⚠️ Could not delete $userId from waitingQueue: $e");
     }
-  }
-
-  /// 🔄 Picks a unique username not already in use
-  Future<String?> getAvailableUsername() async {
-    final usedNames = <String>{};
-
-    // 👥 Check waiting queue
-    final waitingSnapshot =
-        await FirebaseFirestore.instance.collection('waitingQueue').get();
-
-    for (var doc in waitingSnapshot.docs) {
-      usedNames.add(doc.data()['tempUserName']);
-    }
-
-    // 💬 Check chatRooms
-    final chatSnapshot =
-        await FirebaseFirestore.instance.collection('chatRooms').get();
-
-    for (var doc in chatSnapshot.docs) {
-      final users = doc.data()['users'] ?? [];
-      usedNames.addAll(List<String>.from(users));
-    }
-
-    // 🎯 Pick the first unused name
-    for (var name in predefinedUsernames) {
-      if (!usedNames.contains(name)) {
-        return name;
-      }
-    }
-
-    return null; // all usernames are taken
   }
 
   Future<void> blockUser(String blockerId, String blockedId) async {
