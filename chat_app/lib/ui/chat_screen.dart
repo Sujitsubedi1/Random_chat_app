@@ -218,14 +218,36 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              "Stranger left the chat.",
-              style: TextStyle(fontSize: 18),
-            ),
+            Image.asset('assets/images/sad_emoji.png', height: 120),
             const SizedBox(height: 20),
+            const Text(
+              "Oops! Stranger left the chat 😕",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              "Want to find someone new?",
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.black54,
+                fontWeight: FontWeight.normal, // Not bold
+              ),
+            ),
+            const SizedBox(height: 24),
             ElevatedButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text("Find Again"),
+              icon: const Icon(Icons.refresh, color: Colors.white),
+              label: const Text(
+                "Find Again",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white, // White text inside
+                ),
+              ),
               onPressed: () {
                 Navigator.pushReplacement(
                   context,
@@ -234,6 +256,17 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 );
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurpleAccent, // Match Start Chat
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                elevation: 3,
+              ),
             ),
           ],
         ),
