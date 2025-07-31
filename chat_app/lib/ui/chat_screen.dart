@@ -429,30 +429,98 @@ class _ChatScreenState extends State<ChatScreen> {
               if (value == 'report') {
                 showDialog(
                   context: context,
-                  builder:
-                      (_) => AlertDialog(
-                        title: const Text("Report User"),
-                        content: const Text(
-                          "Are you sure you want to report this user?",
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text("Cancel"),
+                  builder: (context) {
+                    String selectedReason = '';
+                    TextEditingController otherController =
+                        TextEditingController();
+
+                    return StatefulBuilder(
+                      builder:
+                          (context, setState) => AlertDialog(
+                            title: const Text("Report User"),
+                            content: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  RadioListTile<String>(
+                                    title: const Text("Inappropriate Language"),
+                                    value: "Inappropriate Language",
+                                    groupValue: selectedReason,
+                                    onChanged:
+                                        (value) => setState(
+                                          () => selectedReason = value!,
+                                        ),
+                                  ),
+                                  RadioListTile<String>(
+                                    title: const Text(
+                                      "Sexual Content or Harassment",
+                                    ),
+                                    value: "Sexual Content",
+                                    groupValue: selectedReason,
+                                    onChanged:
+                                        (value) => setState(
+                                          () => selectedReason = value!,
+                                        ),
+                                  ),
+                                  RadioListTile<String>(
+                                    title: const Text(
+                                      "Spamming or Advertising",
+                                    ),
+                                    value: "Spam",
+                                    groupValue: selectedReason,
+                                    onChanged:
+                                        (value) => setState(
+                                          () => selectedReason = value!,
+                                        ),
+                                  ),
+                                  RadioListTile<String>(
+                                    title: const Text("Other"),
+                                    value: "Other",
+                                    groupValue: selectedReason,
+                                    onChanged:
+                                        (value) => setState(
+                                          () => selectedReason = value!,
+                                        ),
+                                  ),
+                                  if (selectedReason == "Other")
+                                    TextField(
+                                      controller: otherController,
+                                      decoration: const InputDecoration(
+                                        hintText: "Describe issue",
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text("Cancel"),
+                              ),
+                              ElevatedButton(
+                                onPressed: () {
+                                  final reason =
+                                      selectedReason == "Other"
+                                          ? otherController.text.trim()
+                                          : selectedReason;
+
+                                  if (reason.isNotEmpty) {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          "User reported for: $reason",
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: const Text("Submit Report"),
+                              ),
+                            ],
                           ),
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("User reported (UI only)."),
-                                ),
-                              );
-                            },
-                            child: const Text("Report"),
-                          ),
-                        ],
-                      ),
+                    );
+                  },
                 );
               }
             },
