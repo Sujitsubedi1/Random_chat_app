@@ -6,6 +6,7 @@ import 'searching_screen.dart';
 import 'package:logger/logger.dart';
 import '../services/bot_responder.dart';
 import '../constants/banned_keywords.dart';
+import 'dart:async';
 
 final Logger _logger = Logger();
 
@@ -30,6 +31,8 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _strangerId;
   late TextEditingController _controller;
   List<Map<String, String>> _botMessages = [];
+  Timer? _botReplyTimer;
+  String? _lastUserMessage;
 
   @override
   void initState() {
@@ -149,7 +152,6 @@ class _ChatScreenState extends State<ChatScreen> {
     final containsBanned = bannedKeywords.any((word) => lower.contains(word));
 
     if (containsBanned) {
-      // ❌ Respond politely
       setState(() {
         _botMessages.add({
           'text':
@@ -158,7 +160,6 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       });
 
-      // 🚨 Log violation to Firestore
       await FirebaseFirestore.instance.collection('bannedUsers').add({
         'userId': widget.userId,
         'chatRoomId': widget.chatRoomId,
@@ -169,7 +170,6 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    // ✅ Proceed with normal sending logic
     setState(() {
       _botMessages.add({'text': text, 'sender': widget.userId});
     });
@@ -177,21 +177,27 @@ class _ChatScreenState extends State<ChatScreen> {
     _controller.clear();
 
     if (widget.isBot) {
-      final reply = BotResponder.getReply(text);
+      _lastUserMessage = text;
 
-      // Simulate 3–10 second random human-like delay
+      // Cancel any previously scheduled reply
+      _botReplyTimer?.cancel();
+
+      // Debounce + human delay (3 to 10 seconds)
       final delay = Duration(
         seconds: 3 + (DateTime.now().millisecondsSinceEpoch % 8),
       );
-      await Future.delayed(delay);
 
-      setState(() {
-        _botMessages.add({'text': reply, 'sender': 'bot'});
+      _botReplyTimer = Timer(delay, () {
+        final reply = BotResponder.getReply(_lastUserMessage!);
+        setState(() {
+          _botMessages.add({'text': reply, 'sender': 'bot'});
+        });
       });
+
       return;
     }
 
-    // Store in Firestore if real user chat
+    // Real user chat
     final newMessage = {
       'text': text,
       'sender': widget.userId,
@@ -609,6 +615,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _botReplyTimer?.cancel(); // clean up
     super.dispose();
   }
 }
