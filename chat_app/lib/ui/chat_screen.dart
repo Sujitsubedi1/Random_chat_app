@@ -7,6 +7,7 @@ import 'package:logger/logger.dart';
 import '../services/bot_responder.dart';
 import '../constants/banned_keywords.dart';
 import 'dart:async';
+import '../ads/banner_ad_widget.dart';
 
 final Logger _logger = Logger();
 
@@ -532,6 +533,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       },
                     ),
           ),
+          const BannerAdWidget(), // 👈 This shows the test banner ad
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: _buildMessageInput(),
