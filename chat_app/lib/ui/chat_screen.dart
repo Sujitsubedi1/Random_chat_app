@@ -166,7 +166,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (widget.isBot) {
       final reply = BotResponder.getReply(text);
-      await Future.delayed(const Duration(milliseconds: 800));
+
+      // Simulate 3–10 second random human-like delay
+      final delay = Duration(
+        seconds: 3 + (DateTime.now().millisecondsSinceEpoch % 8),
+      );
+      await Future.delayed(delay);
+
       setState(() {
         _botMessages.add({'text': reply, 'sender': 'bot'});
       });
