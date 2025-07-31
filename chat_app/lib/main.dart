@@ -4,6 +4,7 @@ import 'firebase_options.dart';
 // import 'ui/start_chat_page.dart';
 import 'ui/home_container_page.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:flutter/foundation.dart'; // <-- ADD THIS
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,7 +12,10 @@ void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // ✅ Initialize AdMob
-  await MobileAds.instance.initialize();
+  // ✅ Initialize AdMob ONLY on mobile platforms
+  if (!kIsWeb) {
+    await MobileAds.instance.initialize();
+  }
 
   runApp(const MyApp());
 }
