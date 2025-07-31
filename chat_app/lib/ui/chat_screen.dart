@@ -99,6 +99,18 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _handleNextUser() async {
+    if (widget.isBot) {
+      // Just redirect to SearchingScreen again (bot or real match will be handled there)
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SearchingScreen(userId: widget.userId),
+        ),
+      );
+      return;
+    }
+
+    // For real user chat
     final chatRef = FirebaseFirestore.instance
         .collection('chatRooms')
         .doc(widget.chatRoomId);
@@ -121,7 +133,7 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     });
 
-    // Navigate to searching screen to find new user (or fallback to bot)
+    // Navigate to searching screen
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
