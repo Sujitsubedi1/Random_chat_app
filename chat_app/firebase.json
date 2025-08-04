@@ -32,7 +32,9 @@
     ],
     "rewrites": [
       { "source": "/privacy", "destination": "/privacy.html" },
-      { "source": "/terms", "destination": "/terms.html" }
+      { "source": "/terms", "destination": "/terms.html" },
+       { "source": "/child-safety","destination": "/public_docs/child_safety.html"
+  }
     ]
   }
 }
