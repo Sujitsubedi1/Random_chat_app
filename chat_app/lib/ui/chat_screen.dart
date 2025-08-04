@@ -155,9 +155,10 @@ class _ChatScreenState extends State<ChatScreen> {
     final containsBanned = bannedKeywords.any((word) => lower.contains(word));
 
     if (containsBanned) {
+      _controller.clear(); // 👈 CLEAR INPUT IMMEDIATELY
+
       // Show warning message only to sender
       if (widget.isBot) {
-        // Bot mode – add to local bot message list
         setState(() {
           _botMessages.add({
             'text':
@@ -166,7 +167,6 @@ class _ChatScreenState extends State<ChatScreen> {
           });
         });
       } else {
-        // Real user – add system message locally only for sender
         setState(() {
           _localSystemMessages.add({
             'text':
