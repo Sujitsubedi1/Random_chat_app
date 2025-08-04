@@ -34,6 +34,15 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  void _launchChildSafetyPolicy() async {
+    final Uri url = Uri.parse('https://random-chat-3e819.web.app/child-safety');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      throw 'Could not launch $url';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -76,7 +85,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ListTile(
             title: const Text("Child Safety Policy"),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {},
+            onTap: _launchChildSafetyPolicy,
           ),
 
           const SizedBox(height: 24),
