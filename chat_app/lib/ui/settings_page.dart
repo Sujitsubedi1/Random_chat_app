@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:io';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -11,6 +12,44 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  static const _supportEmail = 'randomchat8848@gmail.com'; // change this
+  static const _appVersion = '1.0.0'; // keep in one place
+
+  String _metaBlock() {
+    final platform =
+        Platform.isAndroid
+            ? 'Android'
+            : Platform.isIOS
+            ? 'iOS'
+            : Platform.operatingSystem;
+    return '''
+--- App Info ---
+App Version: $_appVersion
+Platform: $platform
+OS Version: ${Platform.operatingSystemVersion}
+Date (UTC): ${DateTime.now().toUtc().toIso8601String()}
+''';
+  }
+
+  Future<void> _sendFeedbackEmail() async {
+    final body = '''
+[Please write your feedback above this line]
+
+${_metaBlock()}
+''';
+
+    final uri = Uri(
+      scheme: 'mailto',
+      path: _supportEmail,
+      queryParameters: {
+        'subject': 'Feedback – Chat App v$_appVersion',
+        'body': body,
+      },
+    );
+
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -98,8 +137,33 @@ class _SettingsPageState extends State<SettingsPage> {
           ListTile(
             title: const Text("Send Feedback"),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {},
+            onTap: () async {
+              final ok = await launchUrl(
+                Uri(
+                  scheme: 'mailto',
+                  path: _supportEmail,
+                  queryParameters: {
+                    'subject': 'Feedback – Chat App v$_appVersion',
+                    'body': '''
+[Please write your feedback above this line]
+
+${_metaBlock()}
+''',
+                  },
+                ),
+                mode: LaunchMode.externalApplication,
+              );
+
+              if (!ok && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('No email app found on this device.'),
+                  ),
+                );
+              }
+            },
           ),
+
           ListTile(
             title: const Text("Report a Bug"),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
