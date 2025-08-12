@@ -8,6 +8,7 @@ import '../services/bot_responder.dart';
 import '../constants/banned_keywords.dart';
 import 'dart:async';
 import '../ads/banner_ad_widget.dart';
+import 'stranger_left_body.dart';
 
 final Logger _logger = Logger();
 
@@ -203,6 +204,28 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       _botReplyTimer = Timer(delay, () {
         final reply = BotResponder.getReply(_lastUserMessage!);
+
+        if (reply == "__END__") {
+          if (!mounted) return;
+          _botReplyTimer?.cancel();
+
+          // Schedule navigation for after this frame (extra-safe)
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder:
+                    (_) => HomeContainerPage(
+                      initialIndex: 0,
+                      overrideBody: StrangerLeftBody(userId: widget.userId),
+                    ),
+              ),
+            );
+          });
+          return;
+        }
+
         setState(() {
           _botMessages.add({'text': reply, 'sender': 'bot'});
         });
@@ -241,69 +264,6 @@ class _ChatScreenState extends State<ChatScreen> {
         const SizedBox(width: 8),
         IconButton(icon: const Icon(Icons.send), onPressed: _sendMessage),
       ],
-    );
-  }
-
-  Widget _buildStrangerLeftScreen() {
-    return HomeContainerPage(
-      overrideBody: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset('assets/images/sad_emoji.png', height: 120),
-            const SizedBox(height: 20),
-            const Text(
-              "Oops! Stranger left the chat 😕",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              "Want to find someone new?",
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.black54,
-                fontWeight: FontWeight.normal, // Not bold
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.refresh, color: Colors.white),
-              label: const Text(
-                "Find Again",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white, // White text inside
-                ),
-              ),
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => SearchingScreen(userId: widget.userId),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurpleAccent, // Match Start Chat
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                elevation: 3,
-              ),
-            ),
-          ],
-        ),
-      ),
-      initialIndex: 0,
     );
   }
 
@@ -734,7 +694,10 @@ class _ChatScreenState extends State<ChatScreen> {
         final hasLeft = leaver != '' && leaver != widget.userId;
         if (!isActive || hasLeft) {
           _logger.w("🚫 Stranger left — showing requeue UI");
-          return _buildStrangerLeftScreen();
+          return HomeContainerPage(
+            initialIndex: 0,
+            overrideBody: StrangerLeftBody(userId: widget.userId),
+          );
         }
 
         return _buildChatScaffold();

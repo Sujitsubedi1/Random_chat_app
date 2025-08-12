@@ -63,7 +63,7 @@ class BotResponder {
     } else if (msg.contains("ohh") || msg.contains("Ohh")) {
       return "yup";
     } else {
-      return "Bye";
+      return "__END__"; // special signal to end chat
     }
   }
 }
