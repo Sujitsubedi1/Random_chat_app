@@ -319,11 +319,9 @@ class _ChatScreenState extends State<ChatScreen> {
             CircleAvatar(
               radius: 18,
               backgroundColor: Colors.blueGrey,
-              child: Text(
-                (_strangerId?.isNotEmpty ?? false)
-                    ? _strangerId![0].toUpperCase()
-                    : '?',
-                style: const TextStyle(
+              child: const Text(
+                "S",
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -333,7 +331,7 @@ class _ChatScreenState extends State<ChatScreen> {
             const SizedBox(width: 12),
             Flexible(
               child: Text(
-                _strangerId ?? "Unknown",
+                "Stranger",
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
