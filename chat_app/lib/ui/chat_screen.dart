@@ -161,7 +161,7 @@ class _ChatScreenState extends State<ChatScreen> {
       // Show warning message only to sender
       if (widget.isBot) {
         setState(() {
-          _botMessages.add({
+          _botMessages.insert(0, {
             'text':
                 "❌ Please keep the conversation respectful. Inappropriate behavior will lead to removal.",
             'sender': 'system',
@@ -193,7 +193,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (widget.isBot) {
       setState(() {
-        _botMessages.add({'text': text, 'sender': widget.userId});
+        _botMessages.insert(0, {'text': text, 'sender': widget.userId});
       });
 
       _lastUserMessage = text;
@@ -227,7 +227,7 @@ class _ChatScreenState extends State<ChatScreen> {
         }
 
         setState(() {
-          _botMessages.add({'text': reply, 'sender': 'bot'});
+          _botMessages.insert(0, {'text': reply, 'sender': 'bot'});
         });
       });
 
@@ -493,6 +493,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child:
                 widget.isBot
                     ? ListView.builder(
+                      reverse: true,
                       padding: const EdgeInsets.all(12),
                       itemCount: _botMessages.length,
                       itemBuilder: (context, index) {
