@@ -34,6 +34,7 @@ class _ChatScreenState extends State<ChatScreen> {
   late TextEditingController _controller;
   final List<Map<String, String>> _botMessages = [];
   final List<Map<String, String>> _localSystemMessages = [];
+  bool _strangerLeft = false;
 
   Timer? _botReplyTimer;
   String? _lastUserMessage;
@@ -645,8 +646,14 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isBot) {
-      return _buildChatScaffold();
+    if (widget.isBot) return _buildChatScaffold();
+
+    // Hard guard: once stranger-left is set, never rebuild stream UI
+    if (_strangerLeft) {
+      return HomeContainerPage(
+        initialIndex: 0,
+        overrideBody: StrangerLeftBody(userId: widget.userId),
+      );
     }
 
     return StreamBuilder<DocumentSnapshot>(
@@ -662,13 +669,16 @@ class _ChatScreenState extends State<ChatScreen> {
 
         final data = snapshot.data!.data() as Map<String, dynamic>?;
 
+        // If the room got deleted later, but we already switched states, keep the left UI
         if (data == null) {
-          return const Center(
-            child: Text(
-              "Room data missing",
-              style: TextStyle(color: Colors.red, fontSize: 24),
-            ),
-          );
+          if (_strangerLeft) {
+            return HomeContainerPage(
+              initialIndex: 0,
+              overrideBody: StrangerLeftBody(userId: widget.userId),
+            );
+          }
+          // otherwise just show a neutral loader while things settle
+          return const Center(child: CircularProgressIndicator());
         }
 
         final isActive = data['isActive'] ?? false;
@@ -676,12 +686,8 @@ class _ChatScreenState extends State<ChatScreen> {
         final blockerId = data['blocker'];
         final iWasBlocked = blockerId != null && blockerId != widget.userId;
 
-        if (iWasBlocked) {
-          return _buildIWasBlockedScreen();
-        } else if (blockerId == widget.userId) {
-          return _buildBlockedScreen();
-        }
-
+        if (iWasBlocked) return _buildIWasBlockedScreen();
+        if (blockerId == widget.userId) return _buildBlockedScreen();
         if (_strangerId == null) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -690,9 +696,10 @@ class _ChatScreenState extends State<ChatScreen> {
           return const HomeContainerPage(initialIndex: 0);
         }
 
-        final hasLeft = leaver != '' && leaver != widget.userId;
+        final hasLeft = leaver.isNotEmpty && leaver != widget.userId;
         if (!isActive || hasLeft) {
-          _logger.w("🚫 Stranger left — showing requeue UI");
+          // lock UI into stranger-left state and never rebuild the stream path again
+          _strangerLeft = true;
           return HomeContainerPage(
             initialIndex: 0,
             overrideBody: StrangerLeftBody(userId: widget.userId),
