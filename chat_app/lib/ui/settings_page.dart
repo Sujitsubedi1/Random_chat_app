@@ -90,7 +90,7 @@ ${_metaBlock()}
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         children: [
           // Profile Section
-          const SizedBox(height: 24),
+          const SizedBox(height: 8),
 
           // Notifications Section
           const Text(
